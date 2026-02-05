@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>body { margin: 0; font-family: sans-serif; }</style>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vue3-sfc-loader/dist/vue3-sfc-loader.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    const options = {
+      moduleCache: {
+        vue: Vue
+      },
+      async getFile(url) {
+        // Request file content from parent
+        return new Promise((resolve, reject) => {
+          const id = Math.random().toString(36).slice(2)
+          window.parent.postMessage({ type: 'getFile', id, filename: url }, '*')
+          
+          const handler = (e) => {
+             if (e.data.type === 'fileContent' && e.data.id === id) {
+               window.removeEventListener('message', handler)
+               if (e.data.content === null) reject(new Error('File not found: ' + url))
+               else resolve(e.data.content)
+             }
+          }
+          window.addEventListener('message', handler)
+        })
+      },
+      addStyle(textContent) {
+        const style = document.createElement('style');
+        style.textContent = textContent;
+        const ref = document.head.getElementsByTagName('style')[0] || null;
+        document.head.insertBefore(style, ref);
+      },
+    }
+
+    const { loadModule } = window['vue3-sfc-loader'];
+
+    let app = null;
+
+    window.addEventListener('message', (event) => {
+      if (event.data.type === 'reload') {
+        if (app) app.unmount();
+        document.getElementById('app').innerHTML = '';
+        
+        // Clear cache to ensure fresh reload
+        if (options.moduleCache['/App.vue']) {
+           delete options.moduleCache['/App.vue'];
+        }
+        
+        loadModule('/App.vue', options).then(App => {
+          app = Vue.createApp(App);
+          app.mount('#app');
+        }).catch(err => {
+          console.error(err);
+          document.getElementById('app').innerHTML = `<pre style="color:red">${err.message}</pre>`
+        });
+      }
+    });
+    
+    // Initial load signal
+    window.parent.postMessage({ type: 'sandboxReady' }, '*')
+  </script>
+</body>
+</html>
