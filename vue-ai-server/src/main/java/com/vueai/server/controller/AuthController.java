@@ -38,8 +38,82 @@ public class AuthController {
             
             result.put("code", 200);
             result.put("message", "Login success");
-            result.put("data", user);
+            Map<String, Object> userData = new HashMap<>();
+            userData.put("id", user.get("id"));
+            userData.put("username", user.get("username"));
+            userData.put("avatar", "");
+            userData.put("role", user.get("role"));
+            result.put("data", userData);
             result.put("token", "token_" + user.get("id")); 
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    @PostMapping("/register")
+    public Map<String, Object> register(@RequestBody Map<String, String> body) {
+        String username = body.get("username");
+        String password = body.get("password");
+        
+        Map<String, Object> result = new HashMap<>();
+        try {
+            // 检查用户名是否已存在
+            List<Map<String, Object>> existingUsers = jdbcTemplate.queryForList(
+                "SELECT * FROM magic_sys_user WHERE username = ?", username);
+            if (!existingUsers.isEmpty()) {
+                result.put("code", 400);
+                result.put("message", "Username already exists");
+                return result;
+            }
+            
+            // 创建新用户
+            jdbcTemplate.update(
+                "INSERT INTO magic_sys_user (username, password, role) VALUES (?, ?, ?)",
+                username, password, "user");
+            
+            // 获取新创建的用户
+            List<Map<String, Object>> users = jdbcTemplate.queryForList(
+                "SELECT * FROM magic_sys_user WHERE username = ?", username);
+            Map<String, Object> user = users.get(0);
+            
+            result.put("code", 200);
+            result.put("message", "Register success");
+            Map<String, Object> userData = new HashMap<>();
+            userData.put("id", user.get("id"));
+            userData.put("username", user.get("username"));
+            userData.put("avatar", "");
+            userData.put("role", user.get("role"));
+            result.put("data", userData);
+            result.put("token", "token_" + user.get("id"));
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    @GetMapping("/user")
+    public Map<String, Object> getUserInfo(@RequestParam Integer userId) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            List<Map<String, Object>> users = jdbcTemplate.queryForList(
+                "SELECT * FROM magic_sys_user WHERE id = ?", userId);
+            if (users.isEmpty()) {
+                result.put("code", 404);
+                result.put("message", "User not found");
+                return result;
+            }
+            
+            Map<String, Object> user = users.get(0);
+            result.put("code", 200);
+            Map<String, Object> userData = new HashMap<>();
+            userData.put("id", user.get("id"));
+            userData.put("username", user.get("username"));
+            userData.put("avatar", "");
+            userData.put("role", user.get("role"));
+            result.put("data", userData);
         } catch (Exception e) {
             result.put("code", 500);
             result.put("message", e.getMessage());

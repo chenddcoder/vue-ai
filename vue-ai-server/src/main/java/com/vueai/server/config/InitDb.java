@@ -41,6 +41,32 @@ public class InitDb {
                 "PRIMARY KEY (project_id, user_id)" +
                 ")");
 
+        // Create magic_sys_market_app table for app market
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS magic_sys_market_app (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "project_id INTEGER," +
+                "name TEXT NOT NULL," +
+                "description TEXT," +
+                "tags TEXT," +
+                "thumbnail TEXT," +
+                "content TEXT," +
+                "author_id INTEGER," +
+                "author_name TEXT," +
+                "author_avatar TEXT," +
+                "likes INTEGER DEFAULT 0," +
+                "views INTEGER DEFAULT 0," +
+                "publish_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                "status INTEGER DEFAULT 1" +
+                ")");
+
+        // Create magic_sys_market_app_like table for user likes
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS magic_sys_market_app_like (" +
+                "app_id INTEGER," +
+                "user_id INTEGER," +
+                "create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                "PRIMARY KEY (app_id, user_id)" +
+                ")");
+
         // Create default admin user if not exists
         try {
             Integer count = jdbcTemplate.queryForObject("SELECT count(*) FROM magic_sys_user WHERE username = 'admin'", Integer.class);

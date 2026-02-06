@@ -13,6 +13,8 @@ h1 { color: red; }
 </style>`
   })
   const activeFile = ref('App.vue')
+  const currentProjectId = ref<number | null>(null)
+  const fromMyApps = ref(false)
 
   function updateFile(filename: string, content: string) {
     files.value[filename] = content
@@ -22,5 +24,28 @@ h1 { color: red; }
     activeFile.value = filename
   }
 
-  return { files, activeFile, updateFile, setActiveFile }
+  function setCurrentProjectId(id: number) {
+    currentProjectId.value = id
+  }
+
+  function setFromMyApps(flag: boolean) {
+    fromMyApps.value = flag
+  }
+
+  function clearProjectContext() {
+    currentProjectId.value = null
+    fromMyApps.value = false
+  }
+
+  return { 
+    files, 
+    activeFile, 
+    updateFile, 
+    setActiveFile,
+    currentProjectId,
+    fromMyApps,
+    setCurrentProjectId,
+    setFromMyApps,
+    clearProjectContext
+  }
 })

@@ -37,7 +37,7 @@ const sendMessage = async () => {
   loading.value = true
 
   try {
-    const res = await generateCode(userPrompt)
+    const res: any = await generateCode(userPrompt)
     const { template, methods, style } = res.data
     
     // Construct Vue component
