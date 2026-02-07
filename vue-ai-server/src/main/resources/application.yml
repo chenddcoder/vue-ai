@@ -1,9 +1,10 @@
 server:
   port: 8081
+  address: 0.0.0.0
 
 spring:
   datasource:
     driver-class-name: org.sqlite.JDBC
-    url: jdbc:sqlite:vue-ai.db
+    url: jdbc:sqlite:/media/psf/WD/Users/chendd/Documents/self/Java/vue-ai/vue-ai-server/vue-ai.db
     username:
     password:

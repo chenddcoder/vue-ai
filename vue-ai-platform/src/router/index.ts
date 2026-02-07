@@ -39,6 +39,12 @@ const router = createRouter({
       name: 'myApps',
       component: () => import('@/views/MyApps.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/ai-config',
+      name: 'aiConfig',
+      component: () => import('@/views/AIConfig.vue'),
+      meta: { requiresAuth: false }
     }
   ]
 })

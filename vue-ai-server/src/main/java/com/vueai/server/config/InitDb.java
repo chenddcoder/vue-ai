@@ -67,6 +67,24 @@ public class InitDb {
                 "PRIMARY KEY (app_id, user_id)" +
                 ")");
 
+        // Create magic_sys_ai_config table for AI configurations
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS magic_sys_ai_config (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "user_id INTEGER NOT NULL," +
+                "provider_id TEXT NOT NULL," +
+                "model_id TEXT NOT NULL," +
+                "config TEXT NOT NULL," +
+                "is_active INTEGER DEFAULT 0," +
+                "create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                "update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                "FOREIGN KEY (user_id) REFERENCES magic_sys_user(id) ON DELETE CASCADE," +
+                "UNIQUE(user_id, provider_id, model_id)" +
+                ")");
+
+        // Create indexes for AI config table
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_ai_config_user_id ON magic_sys_ai_config(user_id)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_ai_config_active ON magic_sys_ai_config(user_id, is_active)");
+
         // Create default admin user if not exists
         try {
             Integer count = jdbcTemplate.queryForObject("SELECT count(*) FROM magic_sys_user WHERE username = 'admin'", Integer.class);

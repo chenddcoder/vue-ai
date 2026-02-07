@@ -25,6 +25,7 @@ export const useUserStore = defineStore('user', () => {
 
   const isLoggedIn = computed(() => !!token.value && !isGuest.value)
   const currentUser = computed(() => user.value)
+  const userInfo = computed(() => user.value)
 
   // 设置token并保存到localStorage
   function setToken(newToken: string) {
@@ -72,6 +73,7 @@ export const useUserStore = defineStore('user', () => {
     isGuest,
     isLoggedIn,
     currentUser,
+    userInfo,
     setToken,
     setUser,
     setGuestMode,

@@ -68,6 +68,38 @@ export const getMyMarketApps = (userId: number) => {
 }
 
 // AI代码生成
-export const generateCode = (prompt: string) => {
-  return request.post<ApiResponse>('/magic/ai/generate', { prompt })
+export const generateCode = (data: { prompt: string; provider?: string; model?: string; config?: any; context?: string; maxTokens?: number; temperature?: number; topP?: number }) => {
+  return request.post<ApiResponse>('/magic/ai/generate', data)
+}
+
+// AI配置管理
+export const getAIConfigs = (userId: number) => {
+  return request.get<ApiResponse>('/magic/ai/configs', { params: { userId } })
+}
+
+export const saveAIConfig = (data: {
+  id?: number
+  userId: number
+  providerId: string
+  modelId: string
+  config: Record<string, any>
+  isActive?: boolean
+}) => {
+  return request.post<ApiResponse>('/magic/ai/configs', data)
+}
+
+export const deleteAIConfig = (configId: number) => {
+  return request.delete<ApiResponse>(`/magic/ai/configs/${configId}`)
+}
+
+export const setActiveAIConfig = (configId: number) => {
+  return request.put<ApiResponse>(`/magic/ai/configs/${configId}/active`)
+}
+
+export const testAIConfig = (config: any, testPrompt?: string) => {
+  return request.post<ApiResponse>('/magic/ai/configs/test', { config, testPrompt })
+}
+
+export const getAIProviders = () => {
+  return request.get<ApiResponse>('/magic/ai/providers')
 }

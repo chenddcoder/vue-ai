@@ -2,7 +2,7 @@ import axios from 'axios'
 
 const service = axios.create({
   baseURL: '/',
-  timeout: 5000
+  timeout: 120000 // AI API需要更长的超时时间，120秒
 })
 
 service.interceptors.request.use(
@@ -31,6 +31,9 @@ service.interceptors.response.use(
   },
   error => {
     console.error('Network Error:', error)
+    if (error.code === 'ECONNABORTED') {
+      return Promise.reject(new Error('请求超时，请稍后重试或检查AI配置'))
+    }
     return Promise.reject(error)
   }
 )

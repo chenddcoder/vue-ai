@@ -7,6 +7,12 @@
           <a-menu-item key="editor" @click="goHome">编辑器</a-menu-item>
           <a-menu-item key="market" @click="goMarket">应用市场</a-menu-item>
           <a-menu-item key="my-apps" @click="goMyApps" v-if="userStore.isLoggedIn">我的应用</a-menu-item>
+          <a-menu-item key="ai-config" @click="goAIConfig">
+            <template #icon>
+              <RobotOutlined />
+            </template>
+            AI配置
+          </a-menu-item>
         </a-menu>
         <div class="project-name" v-if="projectStore.projectName">
           <AppstoreOutlined />
@@ -35,6 +41,10 @@
             </a-button>
             <template #overlay>
               <a-menu>
+                <a-menu-item @click="goAIConfig">
+                  <RobotOutlined />
+                  AI配置
+                </a-menu-item>
                 <a-menu-item v-if="userStore.isGuest" @click="goLogin">
                   <LoginOutlined />
                   登录/注册
@@ -115,7 +125,8 @@ import {
   DownOutlined,
   LogoutOutlined,
   LoginOutlined,
-  AppstoreOutlined
+  AppstoreOutlined,
+  RobotOutlined
 } from '@ant-design/icons-vue'
 import FileTree from '@/components/FileTree.vue'
 import MonacoEditor from '@/components/editor/MonacoEditor.vue'
@@ -144,6 +155,7 @@ const publishForm = ref({
 const currentMenuKey = computed(() => {
   if (route.path === '/market') return 'market'
   if (route.path === '/my-apps') return 'my-apps'
+  if (route.path === '/ai-config') return 'ai-config'
   return 'editor'
 })
 
@@ -160,6 +172,11 @@ const goMarket = () => {
 // 跳转到我的应用
 const goMyApps = () => {
   router.push('/my-apps')
+}
+
+// 跳转到AI配置
+const goAIConfig = () => {
+  router.push('/ai-config')
 }
 
 // 跳转到登录
