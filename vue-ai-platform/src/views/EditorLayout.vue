@@ -8,6 +8,10 @@
           <a-menu-item key="market" @click="goMarket">应用市场</a-menu-item>
           <a-menu-item key="my-apps" @click="goMyApps" v-if="userStore.isLoggedIn">我的应用</a-menu-item>
         </a-menu>
+        <div class="project-name" v-if="projectStore.projectName">
+          <AppstoreOutlined />
+          <span>{{ projectStore.projectName }}</span>
+        </div>
       </div>
       
       <div class="header-right">
@@ -110,7 +114,8 @@ import {
   UserOutlined, 
   DownOutlined,
   LogoutOutlined,
-  LoginOutlined
+  LoginOutlined,
+  AppstoreOutlined
 } from '@ant-design/icons-vue'
 import FileTree from '@/components/FileTree.vue'
 import MonacoEditor from '@/components/editor/MonacoEditor.vue'
@@ -278,6 +283,19 @@ const handlePublish = async () => {
 .header-left {
   display: flex;
   align-items: center;
+}
+
+.project-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 16px;
+  padding: 0 16px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: white;
+  font-size: 14px;
 }
 
 .logo {

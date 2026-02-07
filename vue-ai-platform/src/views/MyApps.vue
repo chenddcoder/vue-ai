@@ -50,7 +50,7 @@
                       <span>更新于 {{ project.updateTime }}</span>
                     </div>
                     <template #actions>
-                      <a-button type="link" @click="editProject(project.id)">
+                      <a-button type="link" @click="editProject(project)">
                         <EditOutlined />
                         编辑
                       </a-button>
@@ -246,11 +246,12 @@ const loadPublishedApps = async () => {
 }
 
 // 编辑项目
-const editProject = (id: number) => {
+const editProject = (project: any) => {
   // 设置项目上下文为来自我的应用
-  projectStore.setCurrentProjectId(id)
+  projectStore.setCurrentProjectId(project.id)
   projectStore.setFromMyApps(true)
-  router.push(`/project/${id}`)
+  projectStore.setProjectName(project.name)
+  router.push(`/project/${project.id}`)
 }
 
 // 删除项目

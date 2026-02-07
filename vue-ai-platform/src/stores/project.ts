@@ -15,9 +15,14 @@ h1 { color: red; }
   const activeFile = ref('App.vue')
   const currentProjectId = ref<number | null>(null)
   const fromMyApps = ref(false)
+  const projectName = ref('')
 
   function updateFile(filename: string, content: string) {
     files.value[filename] = content
+  }
+
+  function deleteFile(filename: string) {
+    delete files.value[filename]
   }
 
   function setActiveFile(filename: string) {
@@ -32,20 +37,28 @@ h1 { color: red; }
     fromMyApps.value = flag
   }
 
+  function setProjectName(name: string) {
+    projectName.value = name
+  }
+
   function clearProjectContext() {
     currentProjectId.value = null
     fromMyApps.value = false
+    projectName.value = ''
   }
 
   return { 
     files, 
     activeFile, 
     updateFile, 
+    deleteFile,
     setActiveFile,
     currentProjectId,
     fromMyApps,
+    projectName,
     setCurrentProjectId,
     setFromMyApps,
+    setProjectName,
     clearProjectContext
   }
 })
