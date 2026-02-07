@@ -76,4 +76,35 @@ public class ProjectController {
         }
         return result;
     }
+
+    @DeleteMapping("/{id}")
+    public Map<String, Object> delete(@PathVariable Integer id) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            jdbcTemplate.update("DELETE FROM magic_sys_project WHERE id = ?", id);
+            result.put("code", 200);
+            result.put("message", "Deleted successfully");
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    @PutMapping("/{id}/rename")
+    public Map<String, Object> rename(@PathVariable Integer id, @RequestBody Map<String, Object> body) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            String name = (String) body.get("name");
+            jdbcTemplate.update("UPDATE magic_sys_project SET name = ? WHERE id = ?", name, id);
+            result.put("code", 200);
+            result.put("message", "Renamed successfully");
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
 }

@@ -54,6 +54,10 @@
                         <EditOutlined />
                         编辑
                       </a-button>
+                      <a-button type="link" @click="openRenameModal(project)">
+                        <FontSizeOutlined />
+                        重命名
+                      </a-button>
                       <a-button 
                         type="link" 
                         @click="publishProject(project)"
@@ -65,7 +69,7 @@
                       <a-button 
                         type="link" 
                         danger
-                        @click="deleteProject(project.id)"
+                        @click="handleDeleteProject(project.id)"
                       >
                         <DeleteOutlined />
                         删除
@@ -153,6 +157,19 @@
       </a-form-item>
     </a-form>
   </a-modal>
+
+  <!-- 重命名项目弹窗 -->
+  <a-modal
+    v-model:visible="renameModalVisible"
+    title="重命名项目"
+    @ok="handleRename"
+    :confirmLoading="renaming"
+    okText="确认"
+  >
+    <a-form-item label="项目名称">
+      <a-input v-model:value="renameForm.name" placeholder="输入新项目名称" @pressEnter="handleRename" />
+    </a-form-item>
+  </a-modal>
 </template>
 
 <script setup lang="ts">
@@ -169,11 +186,12 @@ import {
   CloudUploadOutlined,
   CloudDownloadOutlined,
   EyeOutlined,
-  LikeOutlined
+  LikeOutlined,
+  FontSizeOutlined
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useProjectStore } from '@/stores/project'
-import { getProjectList, saveProject, publishApp, unpublishApp as apiUnpublishApp, getMyMarketApps } from '@/api'
+import { getProjectList, saveProject, publishApp, unpublishApp as apiUnpublishApp, getMyMarketApps, deleteProject, renameProject } from '@/api'
 
 const router = useRouter()
 const route = useRoute()
@@ -187,6 +205,9 @@ const loading = ref(false)
 const publishModalVisible = ref(false)
 const publishing = ref(false)
 const selectedProject = ref<any>(null)
+const renameModalVisible = ref(false)
+const renaming = ref(false)
+const renameForm = ref({ id: 0, name: '' })
 
 const publishForm = ref({
   name: '',
@@ -255,17 +276,55 @@ const editProject = (project: any) => {
 }
 
 // 删除项目
-const deleteProject = (id: number) => {
+const handleDeleteProject = (id: number) => {
   Modal.confirm({
     title: '确认删除',
     content: '删除后无法恢复，是否确认删除？',
     okText: '确认',
     cancelText: '取消',
     onOk: async () => {
-      message.success('项目已删除')
-      loadProjects()
+      try {
+        const res: any = await deleteProject(id)
+        if (res.code === 200) {
+          message.success('项目已删除')
+          loadProjects()
+        } else {
+          message.error(res.message || '删除失败')
+        }
+      } catch (error: any) {
+        message.error('删除失败: ' + (error.message || '未知错误'))
+      }
     }
   })
+}
+
+// 打开重命名弹窗
+const openRenameModal = (project: any) => {
+  renameForm.value = { id: project.id, name: project.name }
+  renameModalVisible.value = true
+}
+
+// 执行重命名
+const handleRename = async () => {
+  if (!renameForm.value.name.trim()) {
+    message.error('请输入项目名称')
+    return
+  }
+  renaming.value = true
+  try {
+    const res: any = await renameProject(renameForm.value.id, renameForm.value.name)
+    if (res.code === 200) {
+      message.success('重命名成功')
+      renameModalVisible.value = false
+      loadProjects()
+    } else {
+      message.error(res.message || '重命名失败')
+    }
+  } catch (error: any) {
+    message.error('重命名失败: ' + (error.message || '未知错误'))
+  } finally {
+    renaming.value = false
+  }
 }
 
 // 发布项目

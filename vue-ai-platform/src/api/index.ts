@@ -33,6 +33,14 @@ export const saveProject = (data: any) => {
   return request.post<ApiResponse>('/api/project/save', data)
 }
 
+export const deleteProject = (id: number) => {
+  return request.delete<ApiResponse>(`/api/project/${id}`)
+}
+
+export const renameProject = (id: number, name: string) => {
+  return request.put<ApiResponse>(`/api/project/${id}/rename`, { name })
+}
+
 // 应用市场相关
 export const getMarketApps = (params?: { keyword?: string; category?: string; page?: number; pageSize?: number }) => {
   return request.get<ApiResponse>('/api/market/apps', { params })

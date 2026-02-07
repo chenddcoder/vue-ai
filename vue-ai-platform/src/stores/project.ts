@@ -41,10 +41,26 @@ h1 { color: red; }
     projectName.value = name
   }
 
+  function setFiles(newFiles: Record<string, string>) {
+    files.value = newFiles
+  }
+
   function clearProjectContext() {
     currentProjectId.value = null
     fromMyApps.value = false
     projectName.value = ''
+    // Reset files to default template or empty
+    files.value = {
+      'App.vue': `<template>
+  <h1>Hello World</h1>
+</template>
+<script setup>
+</script>
+<style>
+h1 { color: red; }
+</style>`
+    }
+    activeFile.value = 'App.vue'
   }
 
   return { 
@@ -53,6 +69,7 @@ h1 { color: red; }
     updateFile, 
     deleteFile,
     setActiveFile,
+    setFiles,
     currentProjectId,
     fromMyApps,
     projectName,

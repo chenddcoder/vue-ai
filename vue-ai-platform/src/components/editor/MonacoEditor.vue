@@ -40,7 +40,7 @@ const projectStore = useProjectStore()
 onMounted(() => {
   if (editorContainer.value) {
     editor = monaco.editor.create(editorContainer.value, {
-      value: projectStore.files[projectStore.activeFile],
+      value: projectStore.files[projectStore.activeFile] || '',
       language: 'html', // Default to html for Vue files for basic highlighting
       theme: 'vs-dark',
       automaticLayout: true,
@@ -54,8 +54,21 @@ onMounted(() => {
         projectStore.updateFile(projectStore.activeFile, editor.getValue())
       }
     })
+    
+    // Initial content sync
+    const initialContent = projectStore.files[projectStore.activeFile] || ''
+    if (editor.getValue() !== initialContent) {
+      editor.setValue(initialContent)
+    }
   }
 })
+
+watch(() => projectStore.files[projectStore.activeFile], (newContent) => {
+  if (editor && newContent !== editor.getValue()) {
+    editor.setValue(newContent || '')
+  }
+})
+
 
 watch(() => projectStore.activeFile, (newFile) => {
   if (editor) {

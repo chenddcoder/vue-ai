@@ -63,21 +63,25 @@
       </div>
     </a-layout-header>
     
-    <a-layout>
-      <a-layout-sider width="200" style="background: #fff">
+    <a-layout style="height: calc(100vh - 64px)">
+      <a-layout-sider width="200" style="background: #fff; overflow: hidden; display: flex; flex-direction: column;">
         <FileTree />
       </a-layout-sider>
-      <a-layout style="padding: 0 24px 24px">
-        <a-layout-content :style="{ background: '#fff', padding: '24px', margin: 0, minHeight: '280px', display: 'flex' }">
-          <div class="editor-pane">
-            <MonacoEditor />
-          </div>
-          <div class="preview-pane">
-            <Preview />
-          </div>
-          <div class="ai-pane" v-if="showAI">
-            <AIAssistant />
-          </div>
+      <a-layout style="overflow: hidden">
+        <a-layout-content style="padding: 0 24px 24px; height: 100%; display: flex; flex-direction: column">
+          <a-spin :spinning="loading" style="flex: 1; display: flex; flex-direction: column">
+            <div class="workspace" style="flex: 1; display: flex; min-height: 0">
+              <div class="editor-pane" style="flex: 1; display: flex; flex-direction: column; min-width: 0">
+                <MonacoEditor />
+              </div>
+              <div class="preview-pane" style="flex: 1; display: flex; flex-direction: column; min-width: 0">
+                <Preview />
+              </div>
+              <div class="ai-pane" v-if="showAI" style="width: 300px; border-left: 1px solid #ccc; overflow: auto">
+                <AIAssistant />
+              </div>
+            </div>
+          </a-spin>
         </a-layout-content>
       </a-layout>
     </a-layout>
@@ -115,7 +119,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { 
@@ -134,7 +138,7 @@ import Preview from '@/components/preview/Preview.vue'
 import AIAssistant from '@/components/editor/AIAssistant.vue'
 import { useProjectStore } from '@/stores/project'
 import { useUserStore } from '@/stores/user'
-import { saveProject, publishApp } from '@/api'
+import { saveProject, publishApp, getProject } from '@/api'
 
 const router = useRouter()
 const route = useRoute()
@@ -145,11 +149,62 @@ const showAI = ref(true)
 const saving = ref(false)
 const publishing = ref(false)
 const publishModalVisible = ref(false)
+const loading = ref(false)
 
 const publishForm = ref({
   name: '',
   description: '',
   tags: [] as string[]
+})
+
+const loadProject = async () => {
+  const projectId = route.params.id
+  if (projectId === 'new') {
+    projectStore.clearProjectContext()
+    projectStore.setProjectName('未命名项目')
+    return
+  }
+  
+  loading.value = true
+  try {
+    const res: any = await getProject(Number(projectId))
+    if (res.code === 200 && res.data) {
+      const project = res.data
+      projectStore.setCurrentProjectId(project.id)
+      projectStore.setProjectName(project.name)
+      
+      if (project.content) {
+        try {
+          const content = typeof project.content === 'string' ? JSON.parse(project.content) : project.content
+          projectStore.setFiles(content)
+          // Set first file as active if exists
+          const fileKeys = Object.keys(content)
+          if (fileKeys.length > 0) {
+             // Prefer App.vue if exists
+             if (content['App.vue']) {
+               projectStore.setActiveFile('App.vue')
+             } else {
+               projectStore.setActiveFile(fileKeys[0])
+             }
+          }
+        } catch (e) {
+          console.error('Failed to parse project content:', e)
+        }
+      }
+    }
+  } catch (err: any) {
+    message.error('加载项目失败: ' + err.message)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  loadProject()
+})
+
+watch(() => route.params.id, () => {
+  loadProject()
 })
 
 const currentMenuKey = computed(() => {
@@ -196,14 +251,24 @@ const logout = () => {
 const handleSave = async () => {
   saving.value = true
   try {
+    let projectId = route.params.id === 'new' ? undefined : Number(route.params.id)
+    
+    if (projectStore.fromMyApps && projectStore.currentProjectId) {
+      projectId = projectStore.currentProjectId
+    }
+    
     await saveProject({
-      id: route.params.id === 'new' ? undefined : Number(route.params.id),
-      name: 'Demo Project',
+      id: projectId,
+      name: projectStore.projectName || '未命名项目',
       description: 'Vue AI Project',
       ownerId: userStore.currentUser?.id || 0,
       content: projectStore.files
     })
     message.success('项目保存成功！')
+    
+    if (!projectId && route.params.id === 'new') {
+      message.info('请刷新页面或重新打开项目以加载最新内容')
+    }
   } catch (err: any) {
     message.error('保存失败: ' + err.message)
   } finally {
@@ -343,15 +408,44 @@ const handlePublish = async () => {
 
 .editor-pane, .preview-pane {
   flex: 1;
-  border: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.editor-pane :deep(.ant-card),
+.preview-pane :deep(.ant-card) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.editor-pane :deep(.ant-card-body),
+.preview-pane :deep(.ant-card-body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ai-pane {
+  width: 300px;
+  border-left: 1px solid #ccc;
+  overflow: hidden;
+}
+
+.ai-pane :deep(.ant-card) {
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-.ai-pane {
-  width: 300px;
-  height: 100%;
-  border-left: 1px solid #ccc;
+.ai-pane :deep(.ant-card-body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
 }
 </style>

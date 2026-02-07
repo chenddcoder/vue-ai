@@ -59,6 +59,31 @@
                 sandbox="allow-scripts allow-same-origin"
               />
             </div>
+            
+            <div class="file-structure" v-if="!loading && Object.keys(appInfo.content).length > 0">
+              <div class="structure-header">
+                <h3>项目结构</h3>
+              </div>
+              <div class="structure-content">
+                <a-tree
+                  :tree-data="treeData"
+                  :show-icon="true"
+                  :default-expand-all="true"
+                  block-node
+                  class="file-tree"
+                >
+                  <template #switcherIcon="{ dataRef, expanded }">
+                    <DownOutlined v-if="!dataRef.isLeaf && expanded" style="font-size: 10px" />
+                    <RightOutlined v-else-if="!dataRef.isLeaf" style="font-size: 10px" />
+                  </template>
+                  <template #icon="{ dataRef }">
+                    <FolderOutlined v-if="!dataRef.isLeaf && !dataRef.expanded" />
+                    <FolderOpenOutlined v-else-if="!dataRef.isLeaf && dataRef.expanded" />
+                    <FileOutlined v-else />
+                  </template>
+                </a-tree>
+              </div>
+            </div>
           </div>
         </a-col>
 
@@ -157,7 +182,11 @@ import {
   LikeOutlined,
   EyeOutlined,
   CopyOutlined,
-  EditOutlined
+  EditOutlined,
+  FileOutlined,
+  FolderOutlined,
+  FolderOpenOutlined,
+  RightOutlined
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useProjectStore } from '@/stores/project'
@@ -186,20 +215,82 @@ const appInfo = ref<any>({
   content: {}
 })
 
+interface TreeNode {
+  title: string
+  key: string
+  isLeaf?: boolean
+  children?: TreeNode[]
+  expanded?: boolean
+}
+
+const buildTree = (files: Record<string, string>): TreeNode[] => {
+  const root: TreeNode[] = []
+  const nodeMap: Record<string, TreeNode> = {}
+  
+  const filenames = Object.keys(files).sort()
+  
+  filenames.forEach(filename => {
+    const parts = filename.split('/')
+    let currentPath = ''
+    let parentPath = ''
+    
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]
+      const isLast = i === parts.length - 1
+      
+      currentPath = currentPath ? `${currentPath}/${part}` : part
+      
+      if (isLast) {
+        if (part !== '.placeholder') {
+          const fileNode: TreeNode = {
+            title: part,
+            key: currentPath,
+            isLeaf: true
+          }
+          
+          if (parentPath && nodeMap[parentPath]) {
+            nodeMap[parentPath].children?.push(fileNode)
+          } else {
+            root.push(fileNode)
+          }
+        }
+      } else {
+        if (!nodeMap[currentPath]) {
+          const dirNode: TreeNode = {
+            title: part,
+            key: currentPath,
+            isLeaf: false,
+            children: []
+          }
+          nodeMap[currentPath] = dirNode
+          
+          if (parentPath && nodeMap[parentPath]) {
+            nodeMap[parentPath].children?.push(dirNode)
+          } else {
+            root.push(dirNode)
+          }
+        }
+      }
+      parentPath = currentPath
+    }
+  })
+  
+  return root
+}
+
+const treeData = computed(() => {
+  if (!appInfo.value.content) return []
+  return buildTree(appInfo.value.content)
+})
+
 const previewHtml = computed(() => {
-  if (!appInfo.value.content || !appInfo.value.content['App.vue']) {
-    return '<div style="display: flex; justify-content: center; align-items: center; height: 100vh; color: #999;">暂无预览</div>'
+  if (!appInfo.value.content || Object.keys(appInfo.value.content).length === 0) {
+    return '<div style="display: flex; justify-content: center; align-items: center; height: 100vh; color: #999;">暂无预览内容</div>'
   }
   
-  const appVue = appInfo.value.content['App.vue']
-  // 提取template和script
-  const templateMatch = appVue.match(/<template>([\s\S]*)<\/template>/)
-  const scriptMatch = appVue.match(/<script setup>([\s\S]*)<\/script>/)
-  const styleMatch = appVue.match(/<style>([\s\S]*)<\/style>/)
-  
-  const template = templateMatch ? templateMatch[1] : ''
-  const script = scriptMatch ? scriptMatch[1] : ''
-  const style = styleMatch ? styleMatch[1] : ''
+  // 准备文件数据
+  const filesJson = JSON.stringify(appInfo.value.content)
+  const filesEncoded = encodeURIComponent(filesJson)
   
   return `
     <!DOCTYPE html>
@@ -208,22 +299,56 @@ const previewHtml = computed(() => {
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <script src="https://unpkg.com/vue@3/dist/vue.global.js"><\/script>
+      <script src="https://cdn.jsdelivr.net/npm/vue3-sfc-loader/dist/vue3-sfc-loader.js"><\/script>
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        ${style}
       </style>
     </head>
     <body>
-      <div id="app">${template}</div>
+      <div id="app"></div>
       <script>
-        const { createApp, ref, reactive, computed, onMounted } = Vue;
-        createApp({
-          setup() {
-            ${script}
-            return {};
-          }
-        }).mount('#app');
+        const files = JSON.parse(decodeURIComponent("${filesEncoded}"));
+        
+        const options = {
+          moduleCache: {
+            vue: Vue
+          },
+          async getFile(url) {
+            // 简单的路径处理
+            // url 可能是 '/App.vue', './components/Header.vue' 等
+            // 我们需要将其映射到 files 对象的 key
+            
+            let path = url;
+            if (path.startsWith('/')) path = path.slice(1);
+            if (path.startsWith('./')) path = path.slice(2);
+            
+            // 处理相对路径引用 (简化版，假设都是相对于根目录或当前目录的简单引用)
+            // 实际项目中可能需要更复杂的路径解析逻辑
+            
+            const content = files[path];
+            if (!content) {
+              // 尝试查找是否有匹配的 key (处理可能的路径差异)
+              const foundKey = Object.keys(files).find(key => key.endsWith(path) || path.endsWith(key));
+              if (foundKey) return files[foundKey];
+              
+              console.error('File not found:', url);
+              return Promise.reject(new Error('File not found: ' + url));
+            }
+            return content;
+          },
+          addStyle(textContent) {
+            const style = document.createElement('style');
+            style.textContent = textContent;
+            document.head.appendChild(style);
+          },
+        }
+        
+        const { loadModule } = window['vue3-sfc-loader'];
+        
+        const app = Vue.createApp(Vue.defineAsyncComponent(() => loadModule('/App.vue', options)));
+        
+        app.mount('#app');
       <\/script>
     </body>
     </html>
@@ -398,11 +523,15 @@ onMounted(() => {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
 }
 
 .preview-box {
+  position: relative;
   height: 600px;
-  background: #fafafa;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .preview-frame {
@@ -411,11 +540,39 @@ onMounted(() => {
   border: none;
 }
 
+.file-structure {
+  background: #fafafa;
+  border-top: 1px solid #f0f0f0;
+}
+
+.structure-header {
+  padding: 12px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fff;
+}
+
+.structure-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.structure-content {
+  padding: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+:deep(.file-tree) {
+  background: transparent;
+}
+
 .loading-box {
+  height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100%;
+  background: #fafafa;
 }
 
 .info-section {
