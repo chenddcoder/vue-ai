@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -113,131 +114,96 @@ public class AIConfigService {
     // 获取AI提供商信息
     public List<Map<String, Object>> getAIProviders() {
         // 返回支持的AI提供商信息
-        return List.of(
-            Map.of(
-                "id", "openai",
-                "name", "OpenAI",
-                "displayName", "OpenAI GPT",
-                "type", "openai",
-                "description", "OpenAI的GPT系列模型，提供强大的代码生成能力",
-                "icon", "🤖",
-                "website", "https://openai.com"
+        return Arrays.asList(
+            createProviderMap(
+                "openai", "OpenAI", "OpenAI GPT", "openai",
+                "OpenAI的GPT系列模型，提供强大的代码生成能力", "🤖", "https://openai.com"
             ),
-            Map.of(
-                "id", "anthropic",
-                "name", "Anthropic",
-                "displayName", "Claude",
-                "type", "anthropic",
-                "description", "Anthropic的Claude系列模型，专注于安全和有用的AI助手",
-                "icon", "🧠",
-                "website", "https://anthropic.com"
+            createProviderMap(
+                "anthropic", "Anthropic", "Claude", "anthropic",
+                "Anthropic的Claude系列模型，专注于安全和有用的AI助手", "🧠", "https://anthropic.com"
             ),
-            Map.of(
-                "id", "azure",
-                "name", "Azure OpenAI",
-                "displayName", "Azure OpenAI",
-                "type", "azure",
-                "description", "微软Azure托管的OpenAI服务，提供企业级的稳定性保障",
-                "icon", "☁️",
-                "website", "https://azure.microsoft.com/products/ai-services/openai-service"
+            createProviderMap(
+                "azure", "Azure OpenAI", "Azure OpenAI", "azure",
+                "微软Azure托管的OpenAI服务，提供企业级的稳定性保障", "☁️", "https://azure.microsoft.com/products/ai-services/openai-service"
             ),
-            Map.of(
-                "id", "local",
-                "name", "Local AI",
-                "displayName", "本地模型",
-                "type", "local",
-                "description", "在本地运行的AI模型，如Ollama、LM Studio等",
-                "icon", "🏠"
+            createProviderMap(
+                "local", "Local AI", "本地模型", "local",
+                "在本地运行的AI模型，如Ollama、LM Studio等", "🏠", null
             ),
-            Map.of(
-                "id", "custom",
-                "name", "Custom",
-                "displayName", "自定义API",
-                "type", "custom",
-                "description", "支持任何兼容OpenAI格式的自定义API",
-                "icon", "⚙️"
+            createProviderMap(
+                "custom", "Custom", "自定义API", "custom",
+                "支持任何兼容OpenAI格式的自定义API", "⚙️", null
             )
         );
+    }
+
+    private Map<String, Object> createProviderMap(String id, String name, String displayName, String type, String description, String icon, String website) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", id);
+        map.put("name", name);
+        map.put("displayName", displayName);
+        map.put("type", type);
+        map.put("description", description);
+        map.put("icon", icon);
+        if (website != null) {
+            map.put("website", website);
+        }
+        return map;
     }
 
     // 获取指定提供商的模型信息
     public List<Map<String, Object>> getAIModels(String providerId) {
         switch (providerId) {
             case "openai":
-                return List.of(
-                    Map.of(
-                        "id", "gpt-4",
-                        "name", "gpt-4",
-                        "displayName", "GPT-4",
-                        "contextWindow", 8192,
-                        "maxTokens", 4096
+                return Arrays.asList(
+                    createModelMap(
+                        "gpt-4", "gpt-4", "GPT-4", 8192, 4096
                     ),
-                    Map.of(
-                        "id", "gpt-4-turbo",
-                        "name", "gpt-4-turbo",
-                        "displayName", "GPT-4 Turbo",
-                        "contextWindow", 128000,
-                        "maxTokens", 4096
+                    createModelMap(
+                        "gpt-4-turbo", "gpt-4-turbo", "GPT-4 Turbo", 128000, 4096
                     ),
-                    Map.of(
-                        "id", "gpt-3.5-turbo",
-                        "name", "gpt-3.5-turbo",
-                        "displayName", "GPT-3.5 Turbo",
-                        "contextWindow", 16384,
-                        "maxTokens", 4096
+                    createModelMap(
+                        "gpt-3.5-turbo", "gpt-3.5-turbo", "GPT-3.5 Turbo", 16384, 4096
                     )
                 );
             case "anthropic":
-                return List.of(
-                    Map.of(
-                        "id", "claude-3-opus-20240229",
-                        "name", "claude-3-opus-20240229",
-                        "displayName", "Claude 3 Opus",
-                        "contextWindow", 200000,
-                        "maxTokens", 4096
+                return Arrays.asList(
+                    createModelMap(
+                        "claude-3-opus-20240229", "claude-3-opus-20240229", "Claude 3 Opus", 200000, 4096
                     ),
-                    Map.of(
-                        "id", "claude-3-sonnet-20240229",
-                        "name", "claude-3-sonnet-20240229",
-                        "displayName", "Claude 3 Sonnet",
-                        "contextWindow", 200000,
-                        "maxTokens", 4096
+                    createModelMap(
+                        "claude-3-sonnet-20240229", "claude-3-sonnet-20240229", "Claude 3 Sonnet", 200000, 4096
                     ),
-                    Map.of(
-                        "id", "claude-3-haiku-20240307",
-                        "name", "claude-3-haiku-20240307",
-                        "displayName", "Claude 3 Haiku",
-                        "contextWindow", 200000,
-                        "maxTokens", 4096
+                    createModelMap(
+                        "claude-3-haiku-20240307", "claude-3-haiku-20240307", "Claude 3 Haiku", 200000, 4096
                     )
                 );
             case "azure":
-                return List.of(
-                    Map.of(
-                        "id", "gpt-4",
-                        "name", "gpt-4",
-                        "displayName", "GPT-4 (Azure)",
-                        "contextWindow", 8192,
-                        "maxTokens", 4096
+                return Arrays.asList(
+                    createModelMap(
+                        "gpt-4", "gpt-4", "GPT-4 (Azure)", 8192, 4096
                     ),
-                    Map.of(
-                        "id", "gpt-35-turbo",
-                        "name", "gpt-35-turbo",
-                        "displayName", "GPT-3.5 Turbo (Azure)",
-                        "contextWindow", 16384,
-                        "maxTokens", 4096
+                    createModelMap(
+                        "gpt-35-turbo", "gpt-35-turbo", "GPT-3.5 Turbo (Azure)", 16384, 4096
                     )
                 );
             default:
-                return List.of(
-                    Map.of(
-                        "id", "custom",
-                        "name", "custom",
-                        "displayName", "自定义模型",
-                        "contextWindow", 4096,
-                        "maxTokens", 4096
+                return Arrays.asList(
+                    createModelMap(
+                        "custom", "custom", "自定义模型", 4096, 4096
                     )
                 );
         }
+    }
+
+    private Map<String, Object> createModelMap(String id, String name, String displayName, int contextWindow, int maxTokens) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", id);
+        map.put("name", name);
+        map.put("displayName", displayName);
+        map.put("contextWindow", contextWindow);
+        map.put("maxTokens", maxTokens);
+        return map;
     }
 }

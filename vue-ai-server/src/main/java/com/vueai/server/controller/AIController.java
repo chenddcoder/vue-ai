@@ -140,11 +140,11 @@ public class AIController {
             Map<String, Object> result = new HashMap<>();
             result.put("code", 1);
             result.put("message", "AI config test successful");
-            result.put("data", Map.of(
-                "testResult", "Test completed successfully",
-                "responseTime", "200ms",
-                "model", aiConfig.getModelId()
-            ));
+            Map<String, Object> data = new HashMap<>();
+            data.put("testResult", "Test completed successfully");
+            data.put("responseTime", "200ms");
+            data.put("model", aiConfig.getModelId());
+            result.put("data", data);
             return result;
         } catch (Exception e) {
             Map<String, Object> result = new HashMap<>();

@@ -63,8 +63,9 @@
             <div class="file-structure" v-if="!loading && Object.keys(appInfo.content).length > 0">
               <div class="structure-header">
                 <h3>项目结构</h3>
+                <a-tag v-if="!appInfo.isOpenSource" color="orange">闭源</a-tag>
               </div>
-              <div class="structure-content">
+              <div class="structure-content" v-if="appInfo.isOpenSource">
                 <a-tree
                   :tree-data="treeData"
                   :show-icon="true"
@@ -82,6 +83,12 @@
                     <FileOutlined v-else />
                   </template>
                 </a-tree>
+              </div>
+              <div class="structure-content empty" v-else>
+                <div class="protected-msg">
+                  <LockOutlined style="font-size: 24px; margin-bottom: 8px" />
+                  <p>该应用代码已保护，不可查看</p>
+                </div>
               </div>
             </div>
           </div>
@@ -145,9 +152,10 @@
                 block 
                 @click="useApp"
                 style="margin-top: 12px"
+                :disabled="!appInfo.isOpenSource"
               >
                 <CopyOutlined />
-                使用该模板
+                {{ appInfo.isOpenSource ? '使用该模板' : '代码已保护' }}
               </a-button>
               <a-button 
                 v-if="canEdit"
@@ -186,7 +194,8 @@ import {
   FileOutlined,
   FolderOutlined,
   FolderOpenOutlined,
-  RightOutlined
+  RightOutlined,
+  LockOutlined
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useProjectStore } from '@/stores/project'
@@ -212,7 +221,8 @@ const appInfo = ref<any>({
   likes: 0,
   views: 0,
   tags: [],
-  content: {}
+  content: {},
+  isOpenSource: true
 })
 
 interface TreeNode {
@@ -453,7 +463,8 @@ const loadAppDetail = async () => {
         likes: res.data.likes || 0,
         views: res.data.views || 0,
         tags: res.data.tags || [],
-        content: res.data.content || {}
+        content: res.data.content || {},
+        isOpenSource: res.data.is_open_source !== 0 // Default to true if not present or 1
       }
     } else {
       message.error(res.message || '加载应用详情失败')
@@ -549,6 +560,9 @@ onMounted(() => {
   padding: 12px 24px;
   border-bottom: 1px solid #f0f0f0;
   background: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .structure-header h3 {
@@ -561,6 +575,15 @@ onMounted(() => {
   padding: 12px;
   max-height: 300px;
   overflow-y: auto;
+}
+
+.protected-msg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  color: #999;
 }
 
 :deep(.file-tree) {

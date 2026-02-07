@@ -232,7 +232,9 @@ public class AIGenerateService {
         
         Map<String, Object> result = new HashMap<>();
         result.put("code", 1);
-        result.put("data", Map.of("content", content));
+        Map<String, Object> data = new HashMap<>();
+        data.put("content", content);
+        result.put("data", data);
         return result;
     }
 
@@ -252,7 +254,9 @@ public class AIGenerateService {
         
         Map<String, Object> result = new HashMap<>();
         result.put("code", 1);
-        result.put("data", Map.of("content", content));
+        Map<String, Object> data = new HashMap<>();
+        data.put("content", content);
+        result.put("data", data);
         return result;
     }
 
@@ -270,7 +274,9 @@ public class AIGenerateService {
         
         Map<String, Object> result = new HashMap<>();
         result.put("code", 1);
-        result.put("data", Map.of("content", contentText));
+        Map<String, Object> data = new HashMap<>();
+        data.put("content", contentText);
+        result.put("data", data);
         return result;
     }
     

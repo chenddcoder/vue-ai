@@ -30,7 +30,7 @@ public class MarketController {
         try {
             StringBuilder sql = new StringBuilder(
                 "SELECT id, project_id, name, description, tags, thumbnail, " +
-                "author_id, author_name, author_avatar, likes, views, publish_time " +
+                "author_id, author_name, author_avatar, likes, views, publish_time, is_open_source " +
                 "FROM magic_sys_market_app WHERE status = 1"
             );
             List<Object> params = new ArrayList<>();
@@ -50,7 +50,7 @@ public class MarketController {
             
             // 获取总数
             String countSql = sql.toString().replace(
-                "SELECT id, project_id, name, description, tags, thumbnail, author_id, author_name, author_avatar, likes, views, publish_time",
+                "SELECT id, project_id, name, description, tags, thumbnail, author_id, author_name, author_avatar, likes, views, publish_time, is_open_source",
                 "SELECT COUNT(*)"
             );
             Integer total = jdbcTemplate.queryForObject(countSql, Integer.class, params.toArray());
@@ -157,10 +157,14 @@ public class MarketController {
             List<String> tagsList = (List<String>) body.get("tags");
             String tags = tagsList != null ? String.join(",", tagsList) : "";
             
+            // 是否开源
+            Integer isOpenSource = body.get("isOpenSource") != null ? 
+                (Boolean.TRUE.equals(body.get("isOpenSource")) ? 1 : 0) : 1;
+            
             jdbcTemplate.update(
-                "INSERT INTO magic_sys_market_app (project_id, name, description, tags, content, author_id, author_name) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                projectId, name, description, tags, content, authorId, authorName
+                "INSERT INTO magic_sys_market_app (project_id, name, description, tags, content, author_id, author_name, is_open_source) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                projectId, name, description, tags, content, authorId, authorName, isOpenSource
             );
             
             Integer appId = jdbcTemplate.queryForObject("SELECT last_insert_rowid()", Integer.class);

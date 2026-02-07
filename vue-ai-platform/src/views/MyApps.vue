@@ -155,6 +155,10 @@
           :tokenSeparators="[',']"
         />
       </a-form-item>
+      <a-form-item label="开源设置">
+        <a-switch v-model:checked="publishForm.isOpenSource" />
+        <span style="margin-left: 10px">{{ publishForm.isOpenSource ? '开源（允许查看代码和使用模板）' : '闭源（仅允许预览和运行）' }}</span>
+      </a-form-item>
     </a-form>
   </a-modal>
 
@@ -212,7 +216,8 @@ const renameForm = ref({ id: 0, name: '' })
 const publishForm = ref({
   name: '',
   description: '',
-  tags: [] as string[]
+  tags: [] as string[],
+  isOpenSource: true
 })
 
 // 跳转到首页
@@ -333,7 +338,8 @@ const publishProject = (project: any) => {
   publishForm.value = {
     name: project.name,
     description: project.description || '',
-    tags: []
+    tags: [],
+    isOpenSource: true
   }
   publishModalVisible.value = true
 }
@@ -370,14 +376,15 @@ const handlePublish = async () => {
       description: publishForm.value.description,
       tags: publishForm.value.tags,
       authorId: userStore.currentUser?.id,
-      authorName: userStore.currentUser?.username
+      authorName: userStore.currentUser?.username,
+      isOpenSource: publishForm.value.isOpenSource
     })
     if (hideLoading) hideLoading()
     
     if (res.code === 200) {
       message.success('应用发布成功！')
       publishModalVisible.value = false
-      publishForm.value = { name: '', description: '', tags: [] }
+      publishForm.value = { name: '', description: '', tags: [], isOpenSource: true }
       selectedProject.value = null
       loadProjects()
       loadPublishedApps()

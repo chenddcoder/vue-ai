@@ -56,8 +56,16 @@ public class InitDb {
                 "likes INTEGER DEFAULT 0," +
                 "views INTEGER DEFAULT 0," +
                 "publish_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
-                "status INTEGER DEFAULT 1" +
+                "status INTEGER DEFAULT 1," +
+                "is_open_source INTEGER DEFAULT 1" +
                 ")");
+        
+        // Add is_open_source column if not exists (for existing database)
+        try {
+            jdbcTemplate.execute("ALTER TABLE magic_sys_market_app ADD COLUMN is_open_source INTEGER DEFAULT 1");
+        } catch (Exception e) {
+            // Column might already exist
+        }
 
         // Create magic_sys_market_app_like table for user likes
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS magic_sys_market_app_like (" +

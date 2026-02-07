@@ -59,6 +59,7 @@ export const publishApp = (data: {
   content?: any
   authorId?: number
   authorName?: string
+  isOpenSource?: boolean
 }) => {
   return request.post<ApiResponse>('/api/market/publish', data)
 }
