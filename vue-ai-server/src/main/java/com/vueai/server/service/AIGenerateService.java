@@ -1,6 +1,8 @@
 package com.vueai.server.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -12,10 +14,10 @@ import java.util.regex.Pattern;
 @Service
 public class AIGenerateService {
 
+    private final Logger logger = LoggerFactory.getLogger(AIGenerateService.class);
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
     
-    // 智谱AI支持的模型列表
     private static final Map<String, String> ZHIPU_MODELS = new HashMap<>();
     static {
         ZHIPU_MODELS.put("glm-4", "GLM-4");
@@ -27,20 +29,39 @@ public class AIGenerateService {
         ZHIPU_MODELS.put("chatglm_lite", "ChatGLM-Lite");
     }
 
-public Map<String, Object> generate(String provider, String model, Map<String, Object> config, String prompt) {
-        // 打印调试信息
-        System.out.println("=== AI Generate Request ===");
-        System.out.println("Provider: " + provider);
-        System.out.println("Model (from field): " + model);
-        System.out.println("Config: " + config);
+    private String buildVueSystemPrompt() {
+        return "You are a Vue 3 component generation expert. Return ONLY the complete Vue component code. " +
+               "Use Vue 3 Composition API with <script setup> syntax. " +
+               "Define reactive data with ref() or reactive(). " +
+               "Define methods as regular functions. " +
+               "Do not return JSON. Do not add markdown code blocks. Just return raw Vue component code.";
+    }
+    
+    private String buildVueUserPrompt(String prompt) {
+        return "Generate a Vue 3 component using <script setup>: " + prompt;
+    }
+
+    private List<Map<String, Object>> buildMessages(String prompt) {
+        Map<String, Object> systemMsg = new HashMap<>();
+        systemMsg.put("role", "system");
+        systemMsg.put("content", buildVueSystemPrompt());
         
-        // 如果config中有modelName，优先使用
+        Map<String, Object> userMsg = new HashMap<>();
+        userMsg.put("role", "user");
+        userMsg.put("content", buildVueUserPrompt(prompt));
+        
+        return Arrays.asList(systemMsg, userMsg);
+    }
+
+    public Map<String, Object> generate(String provider, String model, Map<String, Object> config, String prompt) throws Exception {
+        logger.info("=== AI Generate Request ===");
+        logger.info("Provider: {}, Model: {}", provider, model);
+        logger.info("Prompt: {}", prompt);
+        
         if (config.containsKey("modelName") && config.get("modelName") != null) {
             model = config.get("modelName").toString();
-            System.out.println("Model (from config.modelName): " + model);
         }
         
-        // 转换为小写进行provider匹配
         String providerId = provider.toLowerCase();
         
         if (providerId.equals("zhipu") || 
@@ -55,6 +76,8 @@ public Map<String, Object> generate(String provider, String model, Map<String, O
                 return generateWithOpenAI(config, prompt, model);
             case "anthropic":
                 return generateWithAnthropic(config, prompt, model);
+            case "qwen":
+                return generateWithQwen(config, prompt, model);
             case "custom":
                 return generateWithCustomAPI(config, prompt, model);
             default:
@@ -62,60 +85,39 @@ public Map<String, Object> generate(String provider, String model, Map<String, O
         }
     }
 
-    private Map<String, Object> generateWithZhipuAI(Map<String, Object> config, String prompt, String model) {
+    private Map<String, Object> generateWithZhipuAI(Map<String, Object> config, String prompt, String model) throws Exception {
         String apiKey = (String) config.get("apiKey");
         String baseUrl = (String) config.getOrDefault("baseUrl", "https://open.bigmodel.cn/api/paas/v4");
         
-        System.out.println("=== ZhipuAI Request ===");
-        System.out.println("API Key: " + (apiKey != null ? "***" : "null"));
-        System.out.println("Base URL: " + baseUrl);
-        System.out.println("Model to use: " + model);
-        
-        // 如果模型名称不是智谱AI的标准模型，尝试使用 glm-4
         String actualModel = model;
         if (!ZHIPU_MODELS.containsKey(model.toLowerCase()) && !model.toLowerCase().contains("glm")) {
             actualModel = "glm-4";
-            System.out.println("Using default ZhipuAI model: glm-4");
         }
         
-        String url = baseUrl;
-        if (!url.endsWith("/")) {
-            url += "/";
-        }
-        url += "chat/completions";
-
+        String url = baseUrl + (baseUrl.endsWith("/") ? "" : "/") + "chat/completions";
+        
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("Authorization", apiKey);
 
-        Map<String, Object> message = new HashMap<>();
-        message.put("role", "user");
-        message.put("content", prompt);
-
         Map<String, Object> body = new HashMap<>();
         body.put("model", actualModel);
-        body.put("messages", Collections.singletonList(message));
+        body.put("messages", buildMessages(prompt));
         body.put("max_tokens", 4096);
         body.put("temperature", 0.7);
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
 
-        try {
-            System.out.println("Calling ZhipuAI API: " + url + " with model: " + actualModel);
-            ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
-            System.out.println("ZhipuAI Response: " + response.getBody());
-            return parseZhipuAIResponse(response.getBody());
-        } catch (Exception e) {
-            System.err.println("ZhipuAI API Error: " + e.getMessage());
-            e.printStackTrace();
-            return generateMockResponse(prompt, "ZhipuAI", actualModel);
-        }
+        logger.info("Calling ZhipuAI API: {}", url);
+        ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
+        logger.info("ZhipuAI Response: {}", response.getStatusCode());
+        
+        return parseZhipuAIResponse(response.getBody());
     }
 
-    private Map<String, Object> generateWithOpenAI(Map<String, Object> config, String prompt, String model) {
+    private Map<String, Object> generateWithOpenAI(Map<String, Object> config, String prompt, String model) throws Exception {
         String apiKey = (String) config.get("apiKey");
         String baseUrl = (String) config.getOrDefault("baseUrl", "https://api.openai.com/v1");
-
         String url = baseUrl + "/chat/completions";
 
         HttpHeaders headers = new HttpHeaders();
@@ -124,28 +126,22 @@ public Map<String, Object> generate(String provider, String model, Map<String, O
             headers.setBearerAuth(apiKey);
         }
 
-        Map<String, Object> message = new HashMap<>();
-        message.put("role", "user");
-        message.put("content", prompt);
-
         Map<String, Object> body = new HashMap<>();
         body.put("model", model);
-        body.put("messages", Collections.singletonList(message));
+        body.put("messages", buildMessages(prompt));
         body.put("max_tokens", 4096);
         body.put("temperature", 0.7);
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
 
-        try {
-            ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
-            return parseOpenAIResponse(response.getBody());
-        } catch (Exception e) {
-            System.err.println("OpenAI API Error: " + e.getMessage());
-            return generateMockResponse(prompt, "OpenAI", model);
-        }
+        logger.info("Calling OpenAI API: {}", url);
+        ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
+        logger.info("OpenAI Response: {}", response.getStatusCode());
+        
+        return parseOpenAIResponse(response.getBody());
     }
 
-    private Map<String, Object> generateWithAnthropic(Map<String, Object> config, String prompt, String model) {
+    private Map<String, Object> generateWithAnthropic(Map<String, Object> config, String prompt, String model) throws Exception {
         String apiKey = (String) config.get("apiKey");
         String url = "https://api.anthropic.com/v1/messages";
 
@@ -157,204 +153,142 @@ public Map<String, Object> generate(String provider, String model, Map<String, O
         Map<String, Object> body = new HashMap<>();
         body.put("model", model);
         body.put("max_tokens", 4096);
-        body.put("messages", Collections.singletonList(Map.of("role", "user", "content", prompt)));
+        body.put("messages", buildMessages(prompt));
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
 
-        try {
-            ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
-            return parseAnthropicResponse(response.getBody());
-        } catch (Exception e) {
-            System.err.println("Anthropic API Error: " + e.getMessage());
-            return generateMockResponse(prompt, "Anthropic", model);
-        }
+        logger.info("Calling Anthropic API: {}", url);
+        ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
+        logger.info("Anthropic Response: {}", response.getStatusCode());
+        
+        return parseAnthropicResponse(response.getBody());
     }
 
-    private Map<String, Object> generateWithCustomAPI(Map<String, Object> config, String prompt, String model) {
-        String baseUrl = (String) config.get("baseUrl");
+    private Map<String, Object> generateWithQwen(Map<String, Object> config, String prompt, String model) throws Exception {
         String apiKey = (String) config.get("apiKey");
-
-        if (baseUrl == null || baseUrl.isEmpty()) {
-            return generateMockResponse(prompt, "Custom", model);
-        }
+        String url = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-
-        if (apiKey != null && !apiKey.isEmpty()) {
-            headers.setBearerAuth(apiKey);
-        }
-
-        Map<String, Object> message = new HashMap<>();
-        message.put("role", "user");
-        message.put("content", prompt);
+        headers.set("Authorization", "Bearer " + apiKey);
 
         Map<String, Object> body = new HashMap<>();
         body.put("model", model);
-        body.put("messages", Collections.singletonList(message));
+        body.put("messages", buildMessages(prompt));
         body.put("max_tokens", 4096);
         body.put("temperature", 0.7);
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
 
-        try {
-            System.out.println("Calling Custom API: " + baseUrl);
-            ResponseEntity<String> response = restTemplate.postForEntity(baseUrl, request, String.class);
-            System.out.println("Custom API Response: " + response.getBody());
-            return parseOpenAIResponse(response.getBody());
-        } catch (Exception e) {
-            System.err.println("Custom API Error: " + e.getMessage());
-            e.printStackTrace();
-            return generateMockResponse(prompt, "Custom", model);
+        logger.info("Calling Qwen API: {}", url);
+        ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
+        logger.info("Qwen Response: {}", response.getStatusCode());
+        
+        return parseOpenAIResponse(response.getBody());
+    }
+
+    private Map<String, Object> generateWithCustomAPI(Map<String, Object> config, String prompt, String model) throws Exception {
+        String baseUrl = (String) config.get("baseUrl");
+        String apiKey = (String) config.get("apiKey");
+
+        if (baseUrl == null || baseUrl.isEmpty()) {
+            throw new RuntimeException("API地址未配置，请先配置API地址");
         }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        if (apiKey != null && !apiKey.isEmpty()) {
+            headers.setBearerAuth(apiKey);
+        }
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("model", model);
+        body.put("messages", buildMessages(prompt));
+        body.put("max_tokens", 4096);
+        body.put("temperature", 0.7);
+
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+
+        logger.info("Calling Custom API: {}", baseUrl);
+        ResponseEntity<String> response = restTemplate.postForEntity(baseUrl, request, String.class);
+        logger.info("Custom API Response: {}", response.getStatusCode());
+        
+        return parseOpenAIResponse(response.getBody());
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, Object> parseZhipuAIResponse(String responseBody) {
-        try {
-            Map response = objectMapper.readValue(responseBody, Map.class);
-            List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
-            if (choices == null || choices.isEmpty()) {
-                return generateMockResponse("", "ZhipuAI", "glm-4");
-            }
-
-            Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
-            String content = (String) message.get("content");
-            return parseAIContent(content);
-        } catch (Exception e) {
-            System.err.println("ZhipuAI Parse Error: " + e.getMessage());
-            return generateMockResponse("", "ZhipuAI", "glm-4");
+    private Map<String, Object> parseZhipuAIResponse(String responseBody) throws Exception {
+        Map response = objectMapper.readValue(responseBody, Map.class);
+        List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
+        if (choices == null || choices.isEmpty()) {
+            throw new RuntimeException("API返回空响应");
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> parseOpenAIResponse(String responseBody) {
-        try {
-            Map response = objectMapper.readValue(responseBody, Map.class);
-            List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
-            if (choices == null || choices.isEmpty()) {
-                return generateMockResponse("", "OpenAI", "gpt-4");
-            }
-
-            Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
-            String content = (String) message.get("content");
-            
-            // 如果content为空，尝试从reasoning_content获取
-            if (content == null || content.isEmpty()) {
-                content = (String) message.get("reasoning_content");
-            }
-            
-            return parseAIContent(content);
-        } catch (Exception e) {
-            System.err.println("OpenAI Parse Error: " + e.getMessage());
-            e.printStackTrace();
-            return generateMockResponse("", "OpenAI", "gpt-4");
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> parseAnthropicResponse(String responseBody) {
-        try {
-            Map response = objectMapper.readValue(responseBody, Map.class);
-            List<Map<String, Object>> content = (List<Map<String, Object>>) response.get("content");
-            if (content == null || content.isEmpty()) {
-                return generateMockResponse("", "Anthropic", "claude-3-opus");
-            }
-
-            String contentText = (String) content.get(0).get("text");
-            return parseAIContent(contentText);
-        } catch (Exception e) {
-            System.err.println("Anthropic Parse Error: " + e.getMessage());
-            return generateMockResponse("", "Anthropic", "claude-3-opus");
-        }
-    }
-
-    private Map<String, Object> parseAIContent(String content) {
-        try {
-            return objectMapper.readValue(content, Map.class);
-        } catch (Exception e) {
-            return extractFromCodeBlocks(content);
-        }
-    }
-
-    private Map<String, Object> extractFromCodeBlocks(String content) {
+        Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+        String content = (String) message.get("content");
+        if (content == null) content = (String) message.get("reasoning_content");
+        
+        // 清理可能的markdown代码块
+        content = cleanMarkdownCodeBlock(content);
+        
         Map<String, Object> result = new HashMap<>();
-
-        Pattern templatePattern = Pattern.compile("<template>(.*?)</template>", Pattern.DOTALL);
-        Pattern scriptPattern = Pattern.compile("<script>(.*?)</script>", Pattern.DOTALL);
-        Pattern stylePattern = Pattern.compile("<style.*?>(.*?)</style>", Pattern.DOTALL);
-
-        Matcher templateMatcher = templatePattern.matcher(content);
-        Matcher scriptMatcher = scriptPattern.matcher(content);
-        Matcher styleMatcher = stylePattern.matcher(content);
-
-        String template = "<template><div>Generated Component</div></template>";
-        String script = "export default { data() { return {} } }";
-        String style = "";
-
-        if (templateMatcher.find()) {
-            template = "<template>" + templateMatcher.group(1).trim() + "</template>";
-        }
-        if (scriptMatcher.find()) {
-            script = scriptMatcher.group(1).trim();
-        }
-        if (styleMatcher.find()) {
-            style = styleMatcher.group(1).trim();
-        }
-
-        result.put("template", template);
-        result.put("methods", script);
-        result.put("style", style);
-        result.put("usage", Map.of("promptTokens", 100, "completionTokens", 500, "totalTokens", 600));
-
+        result.put("code", 1);
+        result.put("data", Map.of("content", content));
         return result;
     }
 
-    private Map<String, Object> generateMockResponse(String prompt, String provider, String model) {
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> parseOpenAIResponse(String responseBody) throws Exception {
+        Map response = objectMapper.readValue(responseBody, Map.class);
+        List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
+        if (choices == null || choices.isEmpty()) {
+            throw new RuntimeException("API返回空响应");
+        }
+        Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+        String content = (String) message.get("content");
+        if (content == null) content = (String) message.get("reasoning_content");
+        
+        // 清理可能的markdown代码块
+        content = cleanMarkdownCodeBlock(content);
+        
         Map<String, Object> result = new HashMap<>();
-        Map<String, Object> data = new HashMap<>();
-
-        String escapedPrompt = prompt.length() > 30 ? prompt.substring(0, 30) + "..." : prompt;
-
-        String template = "<template>\n" +
-                "  <div class=\"generated-component\">\n" +
-                "    <a-card title=\"" + escapedPrompt + "\">\n" +
-                "      <p>This is an AI generated component.</p>\n" +
-                "      <p>Provider: " + provider + "</p>\n" +
-                "      <p>Model: " + model + "</p>\n" +
-                "      <a-button type=\"primary\" @click=\"handleClick\">Click Me</a-button>\n" +
-                "    </a-card>\n" +
-                "  </div>\n" +
-                "</template>";
-
-        String script = "export default {\n" +
-                "  data() {\n" +
-                "    return {\n" +
-                "      message: 'Hello from AI!'\n" +
-                "    }\n" +
-                "  },\n" +
-                "  methods: {\n" +
-                "    handleClick() {\n" +
-                "      this.$message.success('Button clicked!')\n" +
-                "    }\n" +
-                "  }\n" +
-                "}";
-
-        String style = ".generated-component {\n" +
-                "  padding: 20px;\n" +
-                "}";
-
-        data.put("template", template);
-        data.put("methods", script);
-        data.put("style", style);
-
-        Map<String, Integer> usage = new HashMap<>();
-        usage.put("promptTokens", 50);
-        usage.put("completionTokens", 300);
-        usage.put("totalTokens", 350);
-        data.put("usage", usage);
-
-        result.put("data", data);
+        result.put("code", 1);
+        result.put("data", Map.of("content", content));
         return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> parseAnthropicResponse(String responseBody) throws Exception {
+        Map response = objectMapper.readValue(responseBody, Map.class);
+        List<Map<String, Object>> content = (List<Map<String, Object>>) response.get("content");
+        if (content == null || content.isEmpty()) {
+            throw new RuntimeException("API返回空响应");
+        }
+        String contentText = (String) content.get(0).get("text");
+        
+        // 清理可能的markdown代码块
+        contentText = cleanMarkdownCodeBlock(contentText);
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("code", 1);
+        result.put("data", Map.of("content", contentText));
+        return result;
+    }
+    
+    private String cleanMarkdownCodeBlock(String content) {
+        if (content == null) return "";
+        // 移除 ```vue, ```html, ```xml 等代码块标记
+        content = content.replaceAll("```vue\\s*", "");
+        content = content.replaceAll("```html\\s*", "");
+        content = content.replaceAll("```xml\\s*", "");
+        content = content.replaceAll("```typescript\\s*", "");
+        content = content.replaceAll("```javascript\\s*", "");
+        content = content.replaceAll("```\\s*", "");
+        // 移除结尾的 ```
+        content = content.replaceAll("\\s*```\\s*$", "");
+        return content.trim();
+    }
+
+    private Map<String, Object> parseAIContent(String content) throws Exception {
+        return null;
     }
 }

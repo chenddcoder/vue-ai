@@ -227,54 +227,46 @@ const sendMessage = async () => {
     const res: any = await generateCode(request)
     loadingText.value = '正在处理响应...'
     
-    const { template, methods, style, usage } = res.data
+    // 检查响应状态
+    if (res.code !== 1) {
+      throw new Error(res.message || 'AI生成失败')
+    }
     
-    // Construct Vue component
-    const code = `${template}
-
-<script>
-${methods}
-<\/script>
-
-<style scoped>
-${style}
-</style>`
-
-    // Create new file
+    // 直接获取AI返回的完整代码
+    const content = res.data?.content || res.content || ''
+    
+    if (!content) {
+      throw new Error('AI返回空内容')
+    }
+    
+    // 创建文件
     const filename = `Generated-${Date.now()}.vue`
-    projectStore.updateFile(filename, code)
+    projectStore.updateFile(filename, content)
     projectStore.setActiveFile(filename)
     
     messages.value.push({ 
       role: 'assistant', 
-      content: `已创建文件 ${filename}`,
-      usage
+      content: `已创建文件 ${filename}`
     })
     loadingText.value = ''
   } catch (err: any) {
     console.error('AI生成错误:', err)
     
-    // 提取更详细的错误信息
-    let errorMessage = '生成代码时遇到了错误'
+    // 优先使用后端返回的错误信息
+    let errorMessage = err.response?.data?.message || err.message || '生成代码时遇到了错误'
     
-    if (err.message) {
-      if (err.message.includes('timeout') || err.message.includes('超时')) {
-        errorMessage = 'AI响应超时，请稍后重试。如果问题持续，请检查网络连接或AI配置。'
-        loadingText.value = '⏱️ 请求超时'
-      } else if (err.message.includes('network') || err.message.includes('网络')) {
-        errorMessage = '网络连接失败，请检查网络设置。'
-        loadingText.value = '🌐 网络错误'
-      } else {
-        loadingText.value = `❌ ${err.message}`
-      }
-    }
-    
-    // 检查是否是余额不足
-    if (err.response?.data?.message?.includes('余额') || 
-        err.response?.data?.message?.includes('credits') ||
-        err.message?.includes('credits')) {
-      errorMessage = 'AI服务余额不足，请充值或更换API Key。'
-      loadingText.value = '💰 余额不足'
+    // 处理API密钥错误
+    if (errorMessage.includes('401') || errorMessage.includes('Unauthorized') || errorMessage.includes('API密钥')) {
+      errorMessage = 'API密钥无效或已过期，请检查AI配置中的API Key'
+      loadingText.value = '🔑 API密钥错误'
+    } else if (errorMessage.includes('timeout') || errorMessage.includes('超时')) {
+      errorMessage = 'AI响应超时，请稍后重试'
+      loadingText.value = '⏱️ 请求超时'
+    } else if (errorMessage.includes('network') || errorMessage.includes('网络') || errorMessage.includes('connection')) {
+      errorMessage = '网络连接失败，请检查网络设置'
+      loadingText.value = '🌐 网络错误'
+    } else {
+      loadingText.value = `❌ ${errorMessage}`
     }
     
     message.error(errorMessage)

@@ -345,6 +345,57 @@ export const AI_PROVIDERS: AIProvider[] = [
     icon: '⚙️'
   },
   {
+    id: 'qwen',
+    name: 'Qwen',
+    displayName: '通义千问',
+    type: 'qwen',
+    models: [
+      {
+        id: 'qwen-turbo',
+        name: 'qwen-turbo',
+        displayName: '通义千问 Turbo',
+        contextWindow: 16000,
+        maxTokens: 6000
+      },
+      {
+        id: 'qwen-plus',
+        name: 'qwen-plus',
+        displayName: '通义千问 Plus',
+        contextWindow: 64000,
+        maxTokens: 12000
+      },
+      {
+        id: 'qwen-max',
+        name: 'qwen-max',
+        displayName: '通义千问 Max',
+        contextWindow: 64000,
+        maxTokens: 6000
+      },
+      {
+        id: 'qwen-max-longcontext',
+        name: 'qwen-max-longcontext',
+        displayName: '通义千问 Max (长文本)',
+        contextWindow: 1000000,
+        maxTokens: 6000
+      }
+    ],
+    required: ['apiKey'],
+    optional: [],
+    configFields: [
+      {
+        key: 'apiKey',
+        label: 'API Key',
+        type: 'password',
+        required: true,
+        description: '阿里云API密钥（DASHSCOPE_API_KEY）',
+        placeholder: '在阿里云控制台获取的API Key'
+      }
+    ],
+    description: '阿里云通义千问，超长文本理解能力，支持超长上下文',
+    icon: '☁️',
+    website: 'https://www.aliyun.com/product/dashscope'
+  },
+  {
     id: 'zhipu',
     name: 'ZhipuAI',
     displayName: '智谱AI',
