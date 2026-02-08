@@ -503,4 +503,331 @@ public class MarketController {
         
         return major + "." + minor + "." + patch;
     }
+
+    // ==================== 社区功能 API ====================
+
+    /**
+     * 获取应用评论列表
+     */
+    @GetMapping("/apps/{id}/comments")
+    public Map<String, Object> getAppComments(@PathVariable Integer id) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            List<Map<String, Object>> comments = jdbcTemplate.queryForList(
+                "SELECT * FROM magic_sys_market_app_comment WHERE app_id = ? AND parent_id = 0 ORDER BY create_time DESC",
+                id
+            );
+            
+            for (Map<String, Object> comment : comments) {
+                List<Map<String, Object>> replies = jdbcTemplate.queryForList(
+                    "SELECT * FROM magic_sys_market_app_comment WHERE parent_id = ? ORDER BY create_time ASC",
+                    comment.get("id")
+                );
+                comment.put("replies", replies);
+            }
+            
+            Map<String, Object> stats = jdbcTemplate.queryForMap(
+                "SELECT COUNT(*) as total, AVG(rating) as avg_rating FROM magic_sys_market_app_comment WHERE app_id = ?",
+                id
+            );
+            
+            result.put("code", 200);
+            result.put("data", comments);
+            result.put("stats", stats);
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /**
+     * 添加评论
+     */
+    @PostMapping("/apps/{id}/comments")
+    public Map<String, Object> addComment(@PathVariable Integer id, @RequestBody Map<String, Object> body) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            Integer userId = body.get("userId") != null ? 
+                Integer.parseInt(body.get("userId").toString()) : 1;
+            String userName = (String) body.get("userName");
+            if (userName == null || userName.isEmpty()) userName = "匿名用户";
+            String userAvatar = (String) body.get("userAvatar");
+            String content = (String) body.get("content");
+            Integer rating = body.get("rating") != null ? 
+                Integer.parseInt(body.get("rating").toString()) : 5;
+            Integer parentId = body.get("parentId") != null ? 
+                Integer.parseInt(body.get("parentId").toString()) : 0;
+            
+            jdbcTemplate.update(
+                "INSERT INTO magic_sys_market_app_comment (app_id, user_id, user_name, user_avatar, content, rating, parent_id) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                id, userId, userName, userAvatar, content, rating, parentId
+            );
+            
+            result.put("code", 200);
+            Map<String, Object> data = new HashMap<>();
+            data.put("success", true);
+            data.put("message", "评论成功");
+            result.put("data", data);
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /**
+     * 删除评论
+     */
+    @DeleteMapping("/comments/{commentId}")
+    public Map<String, Object> deleteComment(@PathVariable Integer commentId, @RequestBody Map<String, Object> body) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            Integer userId = body.get("userId") != null ? 
+                Integer.parseInt(body.get("userId").toString()) : 1;
+            
+            jdbcTemplate.update(
+                "DELETE FROM magic_sys_market_app_comment WHERE id = ? AND user_id = ?",
+                commentId, userId
+            );
+            
+            result.put("code", 200);
+            Map<String, Object> data = new HashMap<>();
+            data.put("success", true);
+            data.put("message", "删除成功");
+            result.put("data", data);
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /**
+     * 收藏/取消收藏应用
+     */
+    @PostMapping("/apps/{id}/favorite")
+    public Map<String, Object> toggleFavorite(@PathVariable Integer id, @RequestBody Map<String, Object> body) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            Integer userId = body.get("userId") != null ? 
+                Integer.parseInt(body.get("userId").toString()) : 1;
+            
+            Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM magic_sys_market_app_favorite WHERE app_id = ? AND user_id = ?",
+                Integer.class, id, userId
+            );
+            
+            if (count != null && count > 0) {
+                jdbcTemplate.update(
+                    "DELETE FROM magic_sys_market_app_favorite WHERE app_id = ? AND user_id = ?",
+                    id, userId
+                );
+                result.put("data", Map.of("favorited", false, "message", "取消收藏成功"));
+            } else {
+                jdbcTemplate.update(
+                    "INSERT INTO magic_sys_market_app_favorite (app_id, user_id) VALUES (?, ?)",
+                    id, userId
+                );
+                result.put("data", Map.of("favorited", true, "message", "收藏成功"));
+            }
+            
+            result.put("code", 200);
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /**
+     * 获取用户收藏列表
+     */
+    @GetMapping("/favorites")
+    public Map<String, Object> getUserFavorites(@RequestParam Integer userId) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            List<Map<String, Object>> favorites = jdbcTemplate.queryForList(
+                "SELECT f.*, m.name as app_name, m.description, m.thumbnail, m.author_name, m.likes, m.views " +
+                "FROM magic_sys_market_app_favorite f " +
+                "LEFT JOIN magic_sys_market_app m ON f.app_id = m.id " +
+                "WHERE f.user_id = ? ORDER BY f.create_time DESC",
+                userId
+            );
+            
+            result.put("code", 200);
+            result.put("data", favorites);
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /**
+     * 检查用户是否收藏了应用
+     */
+    @GetMapping("/apps/{id}/favorite/check")
+    public Map<String, Object> checkFavorite(@PathVariable Integer id, @RequestParam Integer userId) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM magic_sys_market_app_favorite WHERE app_id = ? AND user_id = ?",
+                Integer.class, id, userId
+            );
+            
+            result.put("code", 200);
+            result.put("data", Map.of("favorited", count != null && count > 0));
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /**
+     * 关注/取消关注用户
+     */
+    @PostMapping("/users/{userId}/follow")
+    public Map<String, Object> toggleFollow(@PathVariable Integer userId, @RequestBody Map<String, Object> body) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            Integer followerId = body.get("followerId") != null ? 
+                Integer.parseInt(body.get("followerId").toString()) : 1;
+            
+            if (followerId.equals(userId)) {
+                result.put("code", 400);
+                result.put("message", "不能关注自己");
+                return result;
+            }
+            
+            Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM magic_sys_user_follow WHERE follower_id = ? AND followee_id = ?",
+                Integer.class, followerId, userId
+            );
+            
+            if (count != null && count > 0) {
+                jdbcTemplate.update(
+                    "DELETE FROM magic_sys_user_follow WHERE follower_id = ? AND followee_id = ?",
+                    followerId, userId
+                );
+                result.put("data", Map.of("following", false, "message", "取消关注成功"));
+            } else {
+                jdbcTemplate.update(
+                    "INSERT INTO magic_sys_user_follow (follower_id, followee_id) VALUES (?, ?)",
+                    followerId, userId
+                );
+                result.put("data", Map.of("following", true, "message", "关注成功"));
+            }
+            
+            result.put("code", 200);
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /**
+     * 获取用户粉丝列表
+     */
+    @GetMapping("/users/{userId}/followers")
+    public Map<String, Object> getUserFollowers(@PathVariable Integer userId) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            List<Map<String, Object>> followers = jdbcTemplate.queryForList(
+                "SELECT u.id, u.username, u.avatar, u.bio, f.create_time as follow_time " +
+                "FROM magic_sys_user_follow f " +
+                "LEFT JOIN magic_sys_user u ON f.follower_id = u.id " +
+                "WHERE f.followee_id = ? ORDER BY f.create_time DESC",
+                userId
+            );
+            
+            result.put("code", 200);
+            result.put("data", followers);
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /**
+     * 获取用户关注列表
+     */
+    @GetMapping("/users/{userId}/following")
+    public Map<String, Object> getUserFollowing(@PathVariable Integer userId) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            List<Map<String, Object>> following = jdbcTemplate.queryForList(
+                "SELECT u.id, u.username, u.avatar, u.bio, f.create_time as follow_time " +
+                "FROM magic_sys_user_follow f " +
+                "LEFT JOIN magic_sys_user u ON f.followee_id = u.id " +
+                "WHERE f.follower_id = ? ORDER BY f.create_time DESC",
+                userId
+            );
+            
+            result.put("code", 200);
+            result.put("data", following);
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /**
+     * 检查是否关注了用户
+     */
+    @GetMapping("/users/{userId}/follow/check")
+    public Map<String, Object> checkFollow(@PathVariable Integer userId, @RequestParam Integer followerId) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM magic_sys_user_follow WHERE follower_id = ? AND followee_id = ?",
+                Integer.class, followerId, userId
+            );
+            
+            result.put("code", 200);
+            result.put("data", Map.of("following", count != null && count > 0));
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /**
+     * 获取用户发布的应用列表
+     */
+    @GetMapping("/users/{userId}/apps")
+    public Map<String, Object> getUserApps(@PathVariable Integer userId) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            List<Map<String, Object>> apps = jdbcTemplate.queryForList(
+                "SELECT id, name, description, thumbnail, likes, views, publish_time, version " +
+                "FROM magic_sys_market_app WHERE author_id = ? AND status = 1 ORDER BY publish_time DESC",
+                userId
+            );
+            
+            result.put("code", 200);
+            result.put("data", apps);
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
 }

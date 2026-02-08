@@ -18,13 +18,14 @@ public class DatabaseMigration implements CommandLineRunner {
 
     private void migrateDatabase() {
         try {
-            // 添加 version 字段
             addColumnIfNotExists("version", "VARCHAR(20) DEFAULT '1.0.0'");
             addColumnIfNotExists("version_code", "INTEGER DEFAULT 1");
             addColumnIfNotExists("update_content", "TEXT");
             
-            // 创建版本历史表
             createVersionTableIfNotExists();
+            createCommentTableIfNotExists();
+            createFavoriteTableIfNotExists();
+            createUserFollowTableIfNotExists();
             
             System.out.println("Database migration completed successfully");
         } catch (Exception e) {
@@ -74,6 +75,81 @@ public class DatabaseMigration implements CommandLineRunner {
                 System.out.println("Version history table created successfully");
             } catch (Exception ex) {
                 System.out.println("Version table may already exist: " + ex.getMessage());
+            }
+        }
+    }
+
+    private void createCommentTableIfNotExists() {
+        try {
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM magic_sys_market_app_comment", Integer.class);
+            System.out.println("Comment table already exists, skipping");
+        } catch (Exception e) {
+            try {
+                System.out.println("Creating comment table...");
+                jdbcTemplate.execute(
+                    "CREATE TABLE IF NOT EXISTS magic_sys_market_app_comment (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "app_id INTEGER NOT NULL, " +
+                    "user_id INTEGER NOT NULL, " +
+                    "user_name VARCHAR(100), " +
+                    "user_avatar TEXT, " +
+                    "content TEXT NOT NULL, " +
+                    "rating INTEGER DEFAULT 5, " +
+                    "parent_id INTEGER DEFAULT 0, " +
+                    "create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+                );
+                jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_comment_app ON magic_sys_market_app_comment(app_id)");
+                jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_comment_parent ON magic_sys_market_app_comment(parent_id)");
+                System.out.println("Comment table created successfully");
+            } catch (Exception ex) {
+                System.out.println("Comment table may already exist: " + ex.getMessage());
+            }
+        }
+    }
+
+    private void createFavoriteTableIfNotExists() {
+        try {
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM magic_sys_market_app_favorite", Integer.class);
+            System.out.println("Favorite table already exists, skipping");
+        } catch (Exception e) {
+            try {
+                System.out.println("Creating favorite table...");
+                jdbcTemplate.execute(
+                    "CREATE TABLE IF NOT EXISTS magic_sys_market_app_favorite (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "app_id INTEGER NOT NULL, " +
+                    "user_id INTEGER NOT NULL, " +
+                    "create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "UNIQUE(app_id, user_id))"
+                );
+                jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_favorite_user ON magic_sys_market_app_favorite(user_id)");
+                System.out.println("Favorite table created successfully");
+            } catch (Exception ex) {
+                System.out.println("Favorite table may already exist: " + ex.getMessage());
+            }
+        }
+    }
+
+    private void createUserFollowTableIfNotExists() {
+        try {
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM magic_sys_user_follow", Integer.class);
+            System.out.println("User follow table already exists, skipping");
+        } catch (Exception e) {
+            try {
+                System.out.println("Creating user follow table...");
+                jdbcTemplate.execute(
+                    "CREATE TABLE IF NOT EXISTS magic_sys_user_follow (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "follower_id INTEGER NOT NULL, " +
+                    "followee_id INTEGER NOT NULL, " +
+                    "create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "UNIQUE(follower_id, followee_id))"
+                );
+                jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_follower ON magic_sys_user_follow(follower_id)");
+                jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_followee ON magic_sys_user_follow(followee_id)");
+                System.out.println("User follow table created successfully");
+            } catch (Exception ex) {
+                System.out.println("User follow table may already exist: " + ex.getMessage());
             }
         }
     }

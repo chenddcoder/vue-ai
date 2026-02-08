@@ -8,6 +8,7 @@
             <a-menu-item key="editor" @click="goHome">编辑器</a-menu-item>
             <a-menu-item key="market">应用市场</a-menu-item>
             <a-menu-item key="my-apps" @click="goMyApps" v-if="userStore.isLoggedIn">我的应用</a-menu-item>
+            <a-menu-item key="favorites" @click="goFavorites" v-if="userStore.isLoggedIn">我的收藏</a-menu-item>
           </a-menu>
         </div>
         
@@ -26,6 +27,10 @@
                   登录/注册
                 </a-menu-item>
                 <a-menu-divider v-if="userStore.isGuest" />
+                <a-menu-item @click="goProfile" v-if="!userStore.isGuest">
+                  <UserOutlined />
+                  个人中心
+                </a-menu-item>
                 <a-menu-item @click="logout">
                   <LogoutOutlined />
                   退出
@@ -40,7 +45,7 @@
       <a-layout-content class="launchpad-content">
         <div class="market-header">
           <h1>应用市场</h1>
-          <p>点击应用图标即可启动应用</p>
+          <p>点击应用图标即可启动应用，点击卡片查看详情</p>
         </div>
 
         <div class="search-section">
@@ -72,7 +77,7 @@
               v-for="app in filteredApps"
               :key="app.id"
               class="app-item"
-              @click="launchApp(app)"
+              @click="openAppDetail(app)"
               @mouseenter="hoveredAppId = app.id"
               @mouseleave="hoveredAppId = null"
             >
@@ -85,6 +90,11 @@
                 </div>
                 <div class="app-info">
                   <div class="app-name">{{ app.name }}</div>
+                  <div class="app-author">{{ app.author_name }}</div>
+                  <div class="app-stats">
+                    <span><EyeOutlined /> {{ app.views || 0 }}</span>
+                    <span><LikeOutlined /> {{ app.likes || 0 }}</span>
+                  </div>
                   <div class="app-tags" v-if="app.tags && app.tags.length">
                     <a-tag v-for="tag in app.tags.slice(0, 2)" :key="tag" size="small">{{ tag }}</a-tag>
                   </div>
@@ -99,6 +109,12 @@
         </div>
       </a-layout-content>
     </a-layout>
+
+    <AppDetailModal
+      v-model:visible="detailModalVisible"
+      :appId="selectedAppId"
+      @launch="launchApp"
+    />
 
     <TransitionGroup name="window-slide" tag="div" class="windows-container">
       <div
@@ -184,10 +200,13 @@ import {
   FullscreenOutlined,
   FullscreenExitOutlined,
   ExportOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  EyeOutlined,
+  LikeOutlined
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { getMarketApps, getMarketAppDetail } from '@/api'
+import { AppDetailModal } from '@/components/community'
 
 interface WindowState {
   id: number
@@ -212,6 +231,8 @@ const hoveredAppId = ref<number | null>(null)
 const hoveredDockId = ref<number | null>(null)
 const windows = ref<WindowState[]>([])
 const iframeRefs = ref<Record<number, HTMLIFrameElement | null>>({})
+const detailModalVisible = ref(false)
+const selectedAppId = ref<number | undefined>(undefined)
 
 let zIndexCounter = 1000
 let isDragging = false
@@ -389,6 +410,14 @@ const goMyApps = () => {
   router.push('/my-apps')
 }
 
+const goFavorites = () => {
+  router.push('/favorites')
+}
+
+const goProfile = () => {
+  router.push('/profile')
+}
+
 const goLogin = () => {
   userStore.logout()
   router.push('/login')
@@ -402,6 +431,11 @@ const logout = () => {
 
 const handleSearch = () => {}
 const handleCategoryChange = () => {}
+
+const openAppDetail = (app: any) => {
+  selectedAppId.value = app.id
+  detailModalVisible.value = true
+}
 
 const launchApp = async (app: any) => {
   const existingWindow = windows.value.find(w => w.id === app.id)
@@ -730,17 +764,39 @@ onMounted(() => {
 
 .app-info {
   text-align: center;
+  width: 100%;
 }
 
 .app-name {
   font-size: 15px;
   font-weight: 500;
   color: #333;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.app-author {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.app-stats {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.app-stats span {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .app-tags {

@@ -1,716 +1,432 @@
 <template>
-  <a-layout style="min-height: 100vh">
-    <a-layout-header class="header">
-      <div class="header-left">
-        <div class="logo" @click="goHome">Vue AI Platform</div>
-        <a-menu theme="dark" mode="horizontal" :selectedKeys="[currentMenuKey]" :style="{ lineHeight: '64px' }">
-          <a-menu-item key="editor" @click="goHome">编辑器</a-menu-item>
-          <a-menu-item key="market" @click="goMarket">应用市场</a-menu-item>
-          <a-menu-item key="my-apps" @click="goMyApps" v-if="userStore.isLoggedIn">我的应用</a-menu-item>
-        </a-menu>
-      </div>
-      
-      <div class="header-right">
-        <a-dropdown v-if="userStore.currentUser">
-          <a-button type="text" class="user-btn">
-            <UserOutlined />
-            {{ userStore.currentUser.username }}
-            <span v-if="userStore.isGuest" class="guest-badge">游客</span>
-            <DownOutlined />
+  <div class="market-app-detail">
+    <a-layout style="min-height: 100vh">
+      <a-layout-header class="header">
+        <div class="header-left">
+          <a-button type="text" @click="goBack" class="back-btn">
+            <LeftOutlined /> 返回
           </a-button>
-          <template #overlay>
-            <a-menu>
-              <a-menu-item v-if="userStore.isGuest" @click="goLogin">
-                <LoginOutlined />
-                登录/注册
-              </a-menu-item>
-              <a-menu-divider v-if="userStore.isGuest" />
-              <a-menu-item @click="logout">
-                <LogoutOutlined />
-                退出
-              </a-menu-item>
-            </a-menu>
-          </template>
-        </a-dropdown>
-        <a-button v-else type="primary" @click="goLogin">登录</a-button>
-      </div>
-    </a-layout-header>
+          <div class="logo">Vue AI Platform</div>
+        </div>
+        <div class="header-right">
+          <a-button type="primary" @click="launchApp">
+            <PlayCircleOutlined /> 启动应用
+          </a-button>
+        </div>
+      </a-layout-header>
 
-    <a-layout-content class="detail-content">
-      <div class="back-nav">
-        <a-button type="link" @click="goBack">
-          <ArrowLeftOutlined />
-          返回市场
-        </a-button>
-      </div>
-
-      <a-row :gutter="[32, 32]">
-        <a-col :xs="24" :lg="16">
-          <div class="preview-section">
-            <div class="preview-box">
-              <div v-if="loading" class="loading-box">
-                <a-spin size="large" tip="加载中..." />
+      <a-layout-content class="content" v-if="app">
+        <div class="app-main">
+          <div class="app-preview">
+            <iframe
+              ref="previewFrame"
+              class="preview-frame"
+              :srcdoc="previewHtml"
+              sandbox="allow-scripts allow-same-origin"
+            />
+          </div>
+          
+          <div class="app-sidebar">
+            <div class="app-card">
+              <div class="app-icon">
+                <img v-if="app.thumbnail" :src="app.thumbnail" :alt="app.name" />
+                <div v-else class="default-icon">
+                  <AppstoreOutlined />
+                </div>
               </div>
-              <iframe 
-                v-else
-                ref="previewFrame"
-                class="preview-frame"
-                :srcdoc="previewHtml"
-                sandbox="allow-scripts allow-same-origin"
-              />
+              <h2>{{ app.name }}</h2>
+              <p class="author">
+                <UserOutlined /> {{ app.author_name }}
+              </p>
+              <div class="tags" v-if="app.tags && app.tags.length">
+                <a-tag v-for="tag in app.tags" :key="tag">{{ tag }}</a-tag>
+              </div>
+              <div class="stats">
+                <span><EyeOutlined /> {{ app.views || 0 }}</span>
+                <span><LikeOutlined /> {{ app.likes || 0 }}</span>
+                <span><StarOutlined /> {{ avgRating?.avg_rating?.toFixed(1) || '暂无评分' }}</span>
+              </div>
+              <a-button type="primary" block @click="launchApp">
+                <PlayCircleOutlined /> 立即体验
+              </a-button>
+              <a-space style="width: 100%; margin-top: 12px;">
+                <a-button block @click="toggleFavorite" :class="{ favorited: isFavorited }">
+                  <StarOutlined :style="isFavorited ? { color: '#faad14' } : {}" />
+                  {{ isFavorited ? '已收藏' : '收藏' }}
+                </a-button>
+                <a-button block @click="toggleLike">
+                  <LikeOutlined :style="isLiked ? { color: '#1890ff' } : {}" />
+                  {{ isLiked ? '已赞' : '点赞' }}
+                </a-button>
+              </a-space>
             </div>
+
+            <a-divider>应用介绍</a-divider>
             
-            <div class="file-structure" v-if="!loading && Object.keys(appInfo.content).length > 0">
-              <div class="structure-header">
-                <h3>项目结构</h3>
-                <a-tag v-if="!appInfo.isOpenSource" color="orange">闭源</a-tag>
-              </div>
-              <div class="structure-content" v-if="appInfo.isOpenSource">
-                <a-tree
-                  :tree-data="treeData"
-                  :show-icon="true"
-                  :default-expand-all="true"
-                  block-node
-                  class="file-tree"
-                >
-                  <template #switcherIcon="{ dataRef, expanded }">
-                    <DownOutlined v-if="!dataRef.isLeaf && expanded" style="font-size: 10px" />
-                    <RightOutlined v-else-if="!dataRef.isLeaf" style="font-size: 10px" />
-                  </template>
-                  <template #icon="{ dataRef }">
-                    <FolderOutlined v-if="!dataRef.isLeaf && !dataRef.expanded" />
-                    <FolderOpenOutlined v-else-if="!dataRef.isLeaf && dataRef.expanded" />
-                    <FileOutlined v-else />
-                  </template>
-                </a-tree>
-              </div>
-              <div class="structure-content empty" v-else>
-                <div class="protected-msg">
-                  <LockOutlined style="font-size: 24px; margin-bottom: 8px" />
-                  <p>该应用代码已保护，不可查看</p>
+            <div class="app-description">
+              <p>{{ app.description }}</p>
+            </div>
+
+            <a-divider>评论 ({{ comments.length }})</a-divider>
+            
+            <div class="comment-form">
+              <a-rate v-model:value="newComment.rating" allow-half />
+              <a-textarea
+                v-model:value="newComment.content"
+                placeholder="写下你的评论..."
+                :rows="3"
+              />
+              <a-button type="primary" @click="submitComment" :loading="submitting">
+                发布评论
+              </a-button>
+            </div>
+
+            <div class="comments-list">
+              <div v-for="comment in comments" :key="comment.id" class="comment-item">
+                <div class="comment-header">
+                  <a-avatar :src="comment.user_avatar" :size="36">
+                    {{ comment.user_name?.charAt(0) }}
+                  </a-avatar>
+                  <div class="comment-meta">
+                    <span class="username">{{ comment.user_name }}</span>
+                    <span class="time">{{ formatTime(comment.create_time) }}</span>
+                  </div>
+                  <a-rate :value="comment.rating" readonly allow-half size="small" />
                 </div>
+                <div class="comment-content">{{ comment.content }}</div>
               </div>
+              <a-empty v-if="comments.length === 0" description="暂无评论" />
             </div>
           </div>
-        </a-col>
+        </div>
+      </a-layout-content>
 
-        <a-col :xs="24" :lg="8">
-          <div class="info-section">
-            <div class="app-header">
-              <h1>{{ appInfo.name }}</h1>
-              <div class="app-stats">
-                <a-space>
-                  <span><EyeOutlined /> {{ appInfo.views }} 浏览</span>
-                  <span><LikeOutlined /> {{ appInfo.likes }} 点赞</span>
-                </a-space>
-              </div>
-            </div>
+      <a-spin v-else class="loading" />
+    </a-layout>
 
-            <a-divider />
-
-            <div class="app-desc">
-              <h3>应用介绍</h3>
-              <p>{{ appInfo.description }}</p>
-            </div>
-
-            <div class="app-tags" v-if="appInfo.tags && appInfo.tags.length">
-              <h3>标签</h3>
-              <div class="tags-list">
-                <a-tag v-for="tag in appInfo.tags" :key="tag" color="blue">{{ tag }}</a-tag>
-              </div>
-            </div>
-
-            <a-divider />
-
-            <div class="author-info">
-              <h3>作者</h3>
-              <div class="author-card">
-                <a-avatar :size="48" :src="appInfo.authorAvatar">
-                  <template #icon><UserOutlined /></template>
-                </a-avatar>
-                <div class="author-detail">
-                  <div class="author-name">{{ appInfo.author }}</div>
-                  <div class="author-date">发布于 {{ appInfo.publishDate }}</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="action-buttons">
-              <a-button 
-                type="primary" 
-                size="large" 
-                block 
-                @click="handleLike"
-                :loading="likeLoading"
-              >
-                <LikeOutlined />
-                {{ isLiked ? '已点赞' : '点赞' }}
-              </a-button>
-              <a-button 
-                type="default" 
-                size="large" 
-                block 
-                @click="handleShare"
-                style="margin-top: 12px"
-              >
-                <ShareAltOutlined />
-                分享
-              </a-button>
-              <a-button 
-                type="default" 
-                size="large" 
-                block 
-                @click="useApp"
-                style="margin-top: 12px"
-                :disabled="!appInfo.isOpenSource"
-              >
-                <CopyOutlined />
-                {{ appInfo.isOpenSource ? '使用该模板' : '代码已保护' }}
-              </a-button>
-              <a-button 
-                v-if="canEdit"
-                type="dashed" 
-                size="large" 
-                block 
-                @click="editApp"
-                style="margin-top: 12px"
-                danger
-              >
-                <EditOutlined />
-                编辑应用
-              </a-button>
-            </div>
+    <TransitionGroup name="window-slide" tag="div" class="windows-container">
+      <div
+        v-for="win in windows"
+        :key="win.id"
+        v-show="!win.minimized"
+        class="app-window"
+        :class="{ 'is-fullscreen': win.isFullscreen }"
+        :style="win.isFullscreen ? {} : win.position"
+      >
+        <div class="app-window-header" @mousedown="startDragHeader($event, win)">
+          <div class="window-controls">
+            <span class="control close" @click.stop="closeWindow(win)"></span>
+            <span class="control minimize" @click.stop="minimizeWindow(win)"></span>
+            <span class="control maximize" @click.stop="toggleFullscreen(win)"></span>
           </div>
-        </a-col>
-      </a-row>
-    </a-layout-content>
-  </a-layout>
+          <div class="window-title">{{ win.name }}</div>
+        </div>
+        <div class="app-window-content">
+          <iframe class="app-frame" :srcdoc="win.html" sandbox="allow-scripts allow-same-origin" />
+        </div>
+      </div>
+    </TransitionGroup>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { ref, onMounted, computed, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { 
-  UserOutlined, 
-  DownOutlined,
-  LogoutOutlined,
-  LoginOutlined,
-  ArrowLeftOutlined,
-  LikeOutlined,
+import {
+  LeftOutlined,
+  PlayCircleOutlined,
+  UserOutlined,
   EyeOutlined,
-  CopyOutlined,
-  EditOutlined,
-  FileOutlined,
-  FolderOutlined,
-  FolderOpenOutlined,
-  RightOutlined,
-  LockOutlined,
-  ShareAltOutlined
+  LikeOutlined,
+  StarOutlined,
+  AppstoreOutlined
 } from '@ant-design/icons-vue'
+import {
+  getMarketAppDetail,
+  getAppComments,
+  addAppComment,
+  toggleAppFavorite,
+  checkAppFavorite,
+  toggleAppLike
+} from '@/api'
 import { useUserStore } from '@/stores/user'
-import { useProjectStore } from '@/stores/project'
-import { getMarketAppDetail, toggleAppLike } from '@/api'
 
-const router = useRouter()
 const route = useRoute()
+const router = useRouter()
 const userStore = useUserStore()
-const projectStore = useProjectStore()
 
-const loading = ref(true)
-const likeLoading = ref(false)
+const app = ref<any>(null)
+const comments = ref<any[]>([])
+const avgRating = ref<any>(null)
+const isFavorited = ref(false)
 const isLiked = ref(false)
-const previewFrame = ref<HTMLIFrameElement | null>(null)
+const submitting = ref(false)
+const windows = ref<any[]>([])
+const previewHtml = ref('')
 
-const appInfo = ref<any>({
-  id: 0,
-  name: '',
-  description: '',
-  author: '',
-  authorAvatar: '',
-  publishDate: '',
-  likes: 0,
-  views: 0,
-  tags: [],
-  content: {},
-  isOpenSource: true
-})
+const newComment = ref({ content: '', rating: 5 })
+let zIndexCounter = 1000
 
-interface TreeNode {
-  title: string
-  key: string
-  isLeaf?: boolean
-  children?: TreeNode[]
-  expanded?: boolean
-}
+const goBack = () => router.back()
 
-const buildTree = (files: Record<string, string>): TreeNode[] => {
-  const root: TreeNode[] = []
-  const nodeMap: Record<string, TreeNode> = {}
-  
-  const filenames = Object.keys(files).sort()
-  
-  filenames.forEach(filename => {
-    const parts = filename.split('/')
-    let currentPath = ''
-    let parentPath = ''
-    
-    for (let i = 0; i < parts.length; i++) {
-      const part = parts[i]
-      const isLast = i === parts.length - 1
-      
-      currentPath = currentPath ? `${currentPath}/${part}` : part
-      
-      if (isLast) {
-        if (part !== '.placeholder') {
-          const fileNode: TreeNode = {
-            title: part,
-            key: currentPath,
-            isLeaf: true
-          }
-          
-          if (parentPath && nodeMap[parentPath]) {
-            nodeMap[parentPath].children?.push(fileNode)
-          } else {
-            root.push(fileNode)
-          }
-        }
-      } else {
-        if (!nodeMap[currentPath]) {
-          const dirNode: TreeNode = {
-            title: part,
-            key: currentPath,
-            isLeaf: false,
-            children: []
-          }
-          nodeMap[currentPath] = dirNode
-          
-          if (parentPath && nodeMap[parentPath]) {
-            nodeMap[parentPath].children?.push(dirNode)
-          } else {
-            root.push(dirNode)
-          }
-        }
-      }
-      parentPath = currentPath
+const loadData = async () => {
+  const appId = parseInt(route.params.id as string)
+  if (!appId) return
+
+  try {
+    const res: any = await getMarketAppDetail(appId)
+    if (res.code === 200) {
+      app.value = res.data
+      previewHtml.value = generatePreviewHtml(res.data.content)
     }
-  })
-  
-  return root
+  } catch (error) {
+    message.error('加载应用失败')
+  }
+
+  try {
+    const commentsRes: any = await getAppComments(appId)
+    if (commentsRes.code === 200) {
+      comments.value = commentsRes.data || []
+      avgRating.value = commentsRes.stats
+    }
+  } catch (error) {
+    console.error('加载评论失败', error)
+  }
+
+  if (userStore.currentUser?.id) {
+    try {
+      const favRes: any = await checkAppFavorite(appId, userStore.currentUser.id)
+      if (favRes.code === 200) isFavorited.value = favRes.data?.favorited
+    } catch (error) {
+      console.error('检查收藏状态失败', error)
+    }
+  }
 }
 
-const treeData = computed(() => {
-  if (!appInfo.value.content) return []
-  return buildTree(appInfo.value.content)
-})
-
-const previewHtml = computed(() => {
-  if (!appInfo.value.content || Object.keys(appInfo.value.content).length === 0) {
-    return '<div style="display: flex; justify-content: center; align-items: center; height: 100vh; color: #999;">暂无预览内容</div>'
-  }
-  
-  // 准备文件数据
-  const filesJson = JSON.stringify(appInfo.value.content)
-  const filesEncoded = encodeURIComponent(filesJson)
-  
+const generatePreviewHtml = (content: any) => {
+  if (!content) return '<div style="padding: 40px; text-align: center; color: #999;">暂无内容</div>'
+  const filesJson = JSON.stringify(content)
   return `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${app.value?.name || '预览'}</title>
       <script src="https://unpkg.com/vue@3/dist/vue.global.js"><\/script>
       <script src="https://unpkg.com/vue-router@4/dist/vue-router.global.js"><\/script>
       <script src="https://unpkg.com/dayjs/dayjs.min.js"><\/script>
-      <script src="https://unpkg.com/dayjs/plugin/customParseFormat.js"><\/script>
-      <script src="https://unpkg.com/dayjs/plugin/weekday.js"><\/script>
-      <script src="https://unpkg.com/dayjs/plugin/localeData.js"><\/script>
-      <script src="https://unpkg.com/dayjs/plugin/weekOfYear.js"><\/script>
-      <script src="https://unpkg.com/dayjs/plugin/weekYear.js"><\/script>
-      <script src="https://unpkg.com/dayjs/plugin/advancedFormat.js"><\/script>
-      <script src="https://unpkg.com/dayjs/plugin/quarterOfYear.js"><\/script>
-      <script>
-        dayjs.extend(window.dayjs_plugin_customParseFormat);
-        dayjs.extend(window.dayjs_plugin_weekday);
-        dayjs.extend(window.dayjs_plugin_localeData);
-        dayjs.extend(window.dayjs_plugin_weekOfYear);
-        dayjs.extend(window.dayjs_plugin_weekYear);
-        dayjs.extend(window.dayjs_plugin_advancedFormat);
-        dayjs.extend(window.dayjs_plugin_quarterOfYear);
-      <\/script>
       <script src="https://unpkg.com/ant-design-vue@4/dist/antd.min.js"><\/script>
       <link rel="stylesheet" href="https://unpkg.com/ant-design-vue@4/dist/reset.css">
       <script src="https://unpkg.com/pinia@2/dist/pinia.global.js"><\/script>
       <script src="https://cdn.jsdelivr.net/npm/vue3-sfc-loader/dist/vue3-sfc-loader.js"><\/script>
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-      </style>
+      <style>body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }</style>
     </head>
     <body>
       <div id="app"></div>
       <script>
-        const files = JSON.parse(decodeURIComponent("${filesEncoded}"));
-        
+        const files = JSON.parse(decodeURIComponent("${encodeURIComponent(filesJson)}"));
+        const { loadModule } = window['vue3-sfc-loader'];
         const options = {
           moduleCache: {
-            vue: window.Vue,
-            'vue-router': window.VueRouter,
-            'pinia': window.Pinia,
-            'ant-design-vue': window.antd
+            vue: window.Vue, 'vue-router': window.VueRouter, 'pinia': window.Pinia, 'ant-design-vue': window.antd
           },
           async getFile(url) {
-            // 简单的路径处理
-            // url 可能是 '/App.vue', './components/Header.vue' 等
-            // 我们需要将其映射到 files 对象的 key
-            
-            let path = url;
-            if (path.startsWith('/')) path = path.slice(1);
-            if (path.startsWith('./')) path = path.slice(2);
-            
-            // 处理相对路径引用 (简化版，假设都是相对于根目录或当前目录的简单引用)
-            // 实际项目中可能需要更复杂的路径解析逻辑
-            
-            const content = files[path];
-            if (!content) {
-              // 尝试查找是否有匹配的 key (处理可能的路径差异)
-              const foundKey = Object.keys(files).find(key => key.endsWith(path) || path.endsWith(key));
-              if (foundKey) return files[foundKey];
-              
-              console.error('File not found:', url);
-              return Promise.reject(new Error('File not found: ' + url));
-            }
-            return content;
+            const key = Object.keys(files).find(k => k.endsWith(url.replace(/^\.?\//, '')));
+            return key ? files[key] : null;
           },
           addStyle(textContent) {
             const style = document.createElement('style');
             style.textContent = textContent;
             document.head.appendChild(style);
           },
-        }
-        
-        const { loadModule } = window['vue3-sfc-loader'];
-        
+        };
         loadModule('/App.vue', options).then(App => {
-          const app = window.Vue.createApp(App);
-          if (window.antd) app.use(window.antd);
-          if (window.Pinia) app.use(window.Pinia.createPinia());
-          
-          const router = window.VueRouter.createRouter({
-            history: window.VueRouter.createMemoryHistory(),
-            routes: []
-          });
-          app.use(router);
-
-          app.mount('#app');
+          const appInstance = window.Vue.createApp(App);
+          if (window.antd) appInstance.use(window.antd);
+          if (window.Pinia) appInstance.use(window.Pinia.createPinia());
+          appInstance.mount('#app');
         });
       <\/script>
     </body>
     </html>
   `
-})
-
-const canEdit = computed(() => {
-  return userStore.isLoggedIn && appInfo.value.authorId === userStore.currentUser?.id
-})
-
-const currentMenuKey = computed(() => 'market')
-
-// 返回市场
-const goBack = () => {
-  router.push('/market')
 }
 
-// 跳转到首页
-const goHome = () => {
-  router.push('/project/new')
-}
-
-// 跳转到市场
-const goMarket = () => {
-  router.push('/market')
-}
-
-// 跳转到我的应用
-const goMyApps = () => {
-  router.push('/my-apps')
-}
-
-// 跳转到登录
-const goLogin = () => {
-  userStore.logout()
-  router.push('/login')
-}
-
-// 退出登录
-const logout = () => {
-  userStore.logout()
-  router.push('/login')
-  message.success('已退出登录')
-}
-
-// 点赞
-const handleLike = async () => {
-  if (userStore.isGuest) {
-    message.warning('请先登录后再点赞')
+const toggleFavorite = async () => {
+  if (!userStore.currentUser?.id) {
+    message.warning('请先登录')
     return
   }
-  
-  likeLoading.value = true
+  const res: any = await toggleAppFavorite(app.value.id, userStore.currentUser.id)
+  if (res.code === 200) {
+    isFavorited.value = res.data?.favorited
+    message.success(res.data?.message)
+  }
+}
+
+const toggleLike = async () => {
+  if (!userStore.currentUser?.id) {
+    message.warning('请先登录')
+    return
+  }
+  const res: any = await toggleAppLike(app.value.id, userStore.currentUser.id)
+  if (res.code === 200) {
+    isLiked.value = res.data?.liked
+    if (app.value) app.value.likes = res.data?.likes
+  }
+}
+
+const submitComment = async () => {
+  if (!userStore.currentUser?.id) {
+    message.warning('请先登录')
+    return
+  }
+  if (!newComment.value.content.trim()) {
+    message.warning('请输入评论内容')
+    return
+  }
+  submitting.value = true
   try {
-    const res: any = await toggleAppLike(Number(route.params.id), userStore.currentUser?.id)
+    const res: any = await addAppComment({
+      appId: app.value.id,
+      userId: userStore.currentUser.id,
+      userName: userStore.currentUser.username,
+      userAvatar: userStore.currentUser.avatar,
+      content: newComment.value.content,
+      rating: newComment.value.rating
+    })
     if (res.code === 200) {
-      isLiked.value = res.data.liked
-      appInfo.value.likes = res.data.likes
-      message.success(isLiked.value ? '点赞成功！' : '已取消点赞')
-    } else {
-      message.error(res.message || '操作失败')
+      message.success('评论成功')
+      newComment.value.content = ''
+      newComment.value.rating = 5
+      loadData()
     }
-  } catch (error: any) {
-    message.error('操作失败: ' + (error.message || '未知错误'))
   } finally {
-    likeLoading.value = false
+    submitting.value = false
   }
 }
 
-// 使用该模板
-const useApp = () => {
-  if (appInfo.value.content) {
-    projectStore.files = { ...appInfo.value.content }
-    message.success('模板已加载到编辑器！')
-    router.push('/project/new')
-  }
-}
-
-// 编辑应用
-const editApp = () => {
-  if (appInfo.value.content) {
-    projectStore.files = { ...appInfo.value.content }
-    router.push(`/project/${appInfo.value.projectId}`)
-  }
-}
-
-// 分享应用
-const handleShare = async () => {
-  const shareUrl = window.location.href
-  try {
-    await navigator.clipboard.writeText(shareUrl)
-    message.success('分享链接已复制到剪贴板！')
-  } catch (err) {
-    message.error('复制失败，请手动复制链接')
-  }
-}
-
-// 加载应用详情
-const loadAppDetail = async () => {
-  loading.value = true
-  try {
-    const res: any = await getMarketAppDetail(Number(route.params.id))
-    if (res.code === 200) {
-      appInfo.value = {
-        id: res.data.id,
-        projectId: res.data.project_id,
-        name: res.data.name,
-        description: res.data.description,
-        author: res.data.author_name,
-        authorId: res.data.author_id,
-        authorAvatar: res.data.author_avatar,
-        publishDate: res.data.publish_time,
-        likes: res.data.likes || 0,
-        views: res.data.views || 0,
-        tags: res.data.tags || [],
-        content: res.data.content || {},
-        isOpenSource: res.data.is_open_source !== 0 // Default to true if not present or 1
-      }
-    } else {
-      message.error(res.message || '加载应用详情失败')
+const launchApp = () => {
+  if (!app.value) return
+  const offset = windows.value.length % 5
+  const win = {
+    id: app.value.id,
+    name: app.value.name,
+    content: app.value.content,
+    thumbnail: app.value.thumbnail,
+    html: generatePreviewHtml(app.value.content),
+    minimized: false,
+    isFullscreen: false,
+    position: {
+      top: `${80 + offset * 30}px`,
+      left: `${100 + offset * 40}px`,
+      width: '90vw',
+      height: '85vh',
+      zIndex: ++zIndexCounter
     }
-  } catch (error: any) {
-    message.error('加载应用详情失败: ' + (error.message || '未知错误'))
-  } finally {
-    loading.value = false
+  }
+  windows.value.push(win)
+  nextTick(() => {
+    win.position.zIndex = ++zIndexCounter
+  })
+}
+
+const closeWindow = (win: any) => {
+  windows.value = windows.value.filter(w => w.id !== win.id)
+}
+
+const minimizeWindow = (win: any) => {
+  win.minimized = true
+}
+
+const toggleFullscreen = (win: any) => {
+  win.isFullscreen = !win.isFullscreen
+}
+
+let isDragging = false
+let dragWin: any = null
+let dragOffset = { x: 0, y: 0 }
+
+const startDragHeader = (e: MouseEvent, win: any) => {
+  if (win.isFullscreen) return
+  isDragging = true
+  dragWin = win
+  dragOffset = { x: e.clientX - parseInt(win.position.left), y: e.clientY - parseInt(win.position.top) }
+  document.addEventListener('mousemove', onDrag)
+  document.addEventListener('mouseup', stopDrag)
+}
+
+const onDrag = (e: MouseEvent) => {
+  if (!isDragging || !dragWin) return
+  dragWin.position = {
+    ...dragWin.position,
+    top: `${Math.max(64, e.clientY - dragOffset.y)}px`,
+    left: `${Math.max(0, e.clientX - dragOffset.x)}px`
   }
 }
 
-onMounted(() => {
-  loadAppDetail()
-})
+const stopDrag = () => {
+  isDragging = false
+  dragWin = null
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
+}
+
+const formatTime = (time: string) => time ? new Date(time).toLocaleDateString('zh-CN') : ''
+
+onMounted(loadData)
 </script>
 
 <style scoped>
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 24px;
-}
+.market-app-detail { min-height: 100vh; background: #f0f2f5; }
+.header { display: flex; justify-content: space-between; align-items: center; padding: 0 24px; background: #001529; }
+.header-left { display: flex; align-items: center; gap: 16px; }
+.back-btn { color: white; }
+.logo { color: white; font-size: 18px; font-weight: 600; }
+.content { padding: 24px; }
+.app-main { display: flex; gap: 24px; max-width: 1400px; margin: 0 auto; }
+.app-preview { flex: 1; min-width: 0; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.preview-frame { width: 100%; height: 600px; border: none; }
+.app-sidebar { width: 360px; flex-shrink: 0; }
+.app-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.app-icon { width: 80px; height: 80px; border-radius: 16px; overflow: hidden; margin: 0 auto 12px; }
+.app-icon img { width: 100%; height: 100%; object-fit: cover; }
+.default-icon { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); font-size: 36px; color: white; }
+.app-card h2 { text-align: center; margin-bottom: 8px; }
+.app-card .author { text-align: center; color: #666; margin-bottom: 12px; }
+.tags { display: flex; justify-content: center; gap: 4px; margin-bottom: 12px; }
+.stats { display: flex; justify-content: center; gap: 16px; color: #666; margin-bottom: 16px; }
+.stats span { display: flex; align-items: center; gap: 4px; }
+.favorited { border-color: #faad14; color: #faad14; }
+.app-description { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.comment-form { margin-bottom: 20px; }
+.comment-form .ant-rate { margin-bottom: 8px; }
+.comment-form .ant-btn { margin-top: 8px; }
+.comments-list { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.comment-item { padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+.comment-item:last-child { border-bottom: none; }
+.comment-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.comment-meta { flex: 1; }
+.username { font-weight: 500; margin-right: 8px; }
+.time { color: #999; font-size: 12px; }
+.comment-content { color: #333; line-height: 1.5; }
+.loading { display: flex; justify-content: center; align-items: center; height: 400px; }
 
-.header-left {
-  display: flex;
-  align-items: center;
-}
-
-.logo {
-  color: white;
-  font-size: 1.2rem;
-  margin-right: 2rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-}
-
-.user-btn {
-  color: white;
-}
-
-.guest-badge {
-  background: #ff4d4f;
-  color: white;
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  margin-left: 4px;
-}
-
-.detail-content {
-  background: #f0f2f5;
-  padding: 24px 48px;
-}
-
-.back-nav {
-  margin-bottom: 16px;
-}
-
-.preview-section {
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  display: flex;
-  flex-direction: column;
-}
-
-.preview-box {
-  position: relative;
-  height: 600px;
-  background: #fff;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.preview-frame {
-  width: 100%;
-  height: 100%;
-  border: none;
-}
-
-.file-structure {
-  background: #fafafa;
-  border-top: 1px solid #f0f0f0;
-}
-
-.structure-header {
-  padding: 12px 24px;
-  border-bottom: 1px solid #f0f0f0;
-  background: #fff;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.structure-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 500;
-}
-
-.structure-content {
-  padding: 12px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.protected-msg {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 0;
-  color: #999;
-}
-
-:deep(.file-tree) {
-  background: transparent;
-}
-
-.loading-box {
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #fafafa;
-}
-
-.info-section {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-}
-
-.app-header h1 {
-  font-size: 1.8rem;
-  margin-bottom: 8px;
-}
-
-.app-stats {
-  color: #666;
-  font-size: 14px;
-}
-
-.app-desc h3,
-.app-tags h3,
-.author-info h3 {
-  font-size: 16px;
-  margin-bottom: 12px;
-  color: #333;
-}
-
-.app-desc p {
-  color: #666;
-  line-height: 1.6;
-}
-
-.tags-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.author-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  background: #f5f5f5;
-  border-radius: 8px;
-}
-
-.author-name {
-  font-weight: 500;
-  color: #333;
-}
-
-.author-date {
-  font-size: 12px;
-  color: #999;
-  margin-top: 4px;
-}
-
-.action-buttons {
-  margin-top: 24px;
-}
+.windows-container { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 1000; }
+.app-window { position: absolute; width: 90vw; height: 85vh; background: white; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.25); display: flex; flex-direction: column; overflow: hidden; pointer-events: auto; }
+.app-window.is-fullscreen { top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; border-radius: 0; }
+.app-window-header { display: flex; align-items: center; padding: 12px 16px; background: linear-gradient(180deg, #f8f8f8 0%, #e8e8e8 100%); border-bottom: 1px solid #d9d9d9; cursor: move; user-select: none; }
+.window-controls { display: flex; gap: 8px; }
+.control { width: 12px; height: 12px; border-radius: 50%; cursor: pointer; }
+.control.close { background: #ff5f57; }
+.control.minimize { background: #febc2e; }
+.control.maximize { background: #28c840; }
+.window-title { flex: 1; text-align: center; font-size: 14px; color: #666; }
+.app-window-content { flex: 1; overflow: hidden; }
+.app-frame { width: 100%; height: 100%; border: none; }
+.window-slide-enter-active, .window-slide-leave-active { transition: all 0.3s ease; }
+.window-slide-enter-from { opacity: 0; transform: translateY(20px); }
+.window-slide-leave-to { opacity: 0; transform: scale(0.9); }
 </style>

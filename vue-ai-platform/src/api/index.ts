@@ -95,6 +95,60 @@ export const getMyMarketApps = (userId: number) => {
   return request.get<ApiResponse>('/api/market/my-apps', { params: { userId } })
 }
 
+// ==================== 社区功能 API ====================
+
+export const getAppComments = (appId: number) => {
+  return request.get<ApiResponse>(`/api/market/apps/${appId}/comments`)
+}
+
+export const addAppComment = (data: {
+  appId: number
+  userId: number
+  userName?: string
+  userAvatar?: string
+  content: string
+  rating?: number
+  parentId?: number
+}) => {
+  return request.post<ApiResponse>(`/api/market/apps/${data.appId}/comments`, data)
+}
+
+export const deleteComment = (commentId: number, userId: number) => {
+  return request.delete<ApiResponse>(`/api/market/comments/${commentId}`, { data: { userId } })
+}
+
+export const toggleAppFavorite = (appId: number, userId: number) => {
+  return request.post<ApiResponse>(`/api/market/apps/${appId}/favorite`, { userId })
+}
+
+export const getUserFavorites = (userId: number) => {
+  return request.get<ApiResponse>('/api/market/favorites', { params: { userId } })
+}
+
+export const checkAppFavorite = (appId: number, userId: number) => {
+  return request.get<ApiResponse>(`/api/market/apps/${appId}/favorite/check`, { params: { userId } })
+}
+
+export const toggleUserFollow = (userId: number, followerId: number) => {
+  return request.post<ApiResponse>(`/api/market/users/${userId}/follow`, { followerId })
+}
+
+export const getUserFollowers = (userId: number) => {
+  return request.get<ApiResponse>(`/api/market/users/${userId}/followers`)
+}
+
+export const getUserFollowing = (userId: number) => {
+  return request.get<ApiResponse>(`/api/market/users/${userId}/following`)
+}
+
+export const checkUserFollow = (userId: number, followerId: number) => {
+  return request.get<ApiResponse>(`/api/market/users/${userId}/follow/check`, { params: { followerId } })
+}
+
+export const getUserApps = (userId: number) => {
+  return request.get<ApiResponse>(`/api/market/users/${userId}/apps`)
+}
+
 // AI代码生成
 export const generateCode = (data: { prompt: string; provider?: string; model?: string; config?: any; context?: string; maxTokens?: number; temperature?: number; topP?: number }) => {
   return request.post<ApiResponse>('/magic/ai/generate', data)

@@ -75,7 +75,7 @@ public class SmartCodeGeneratorService {
         // 6. 解析生成的文件
         List<Map<String, String>> files = parseGeneratedContent(generatedContent);
         
-        // 7. 代码质量与规范检查 (Feature 5, 6)
+        // 7. 代码质量与规范检查
         validateGeneratedFiles(files, dependencies, gitIgnore);
         
         // 8. 更新项目文件 (仅当有项目ID时才保存到数据库)
@@ -267,14 +267,13 @@ public class SmartCodeGeneratorService {
                  }
              }
         }
-        
-        // 3. Dependency Check
+         
+        // 3. Dependency Check - 开放平台：只检测不自动添加，提示用户提交心愿单
+        Set<String> missingDeps = new HashSet<>();
         if (packageJsonContent != null) {
             try {
                 Map<String, Object> pkg = objectMapper.readValue(packageJsonContent, Map.class);
-                Set<String> validDeps = new HashSet<>();
-                if (pkg.containsKey("dependencies")) validDeps.addAll(((Map) pkg.get("dependencies")).keySet());
-                if (pkg.containsKey("devDependencies")) validDeps.addAll(((Map) pkg.get("devDependencies")).keySet());
+                Map<String, Object> dependencies = pkg.containsKey("dependencies") ? (Map<String, Object>) pkg.get("dependencies") : new HashMap<>();
                 
                 Pattern importPattern = Pattern.compile("import\\s+.*?\\s+from\\s+['\"]([^'\"]+)['\"]");
                 for (Map<String, String> file : files) {
@@ -291,20 +290,21 @@ public class SmartCodeGeneratorService {
                              if (pkgName.contains("/")) pkgName = pkgName.split("/")[0];
                         }
                         
-                        // Allow built-in vue deps if not explicitly in package.json (though usually they are)
-                        if (!validDeps.contains(pkgName) && !isBuiltIn(pkgName)) {
-                            // Only warn for now, or throw error. User asked for validation.
-                            // Let's log warning instead of blocking, or throw error if strictly required.
-                            // User said "ensure generated code can be integrated", so missing dependency is critical.
-                            // But AI might generate code that needs `axios` which is common.
-                            // Let's be strict but maybe allow common ones or just throw.
-                            throw new RuntimeException("依赖验证失败: 引用了未安装的依赖包 " + pkgName + " (在文件 " + file.get("path") + " 中)");
+                        // 检测未预置的依赖
+                        if (!dependencies.containsKey(pkgName) && !isBuiltIn(pkgName)) {
+                            missingDeps.add(pkgName);
                         }
                     }
                 }
+                
+                if (!missingDeps.isEmpty()) {
+                    String depList = String.join(", ", missingDeps);
+                    throw new RuntimeException("依赖未预置: " + depList + "。请通过「应用市场」→「心愿单」提交新依赖申请，管理员审核后将在24小时内添加。");
+                }
+            } catch (RuntimeException e) {
+                throw e;
             } catch (Exception e) {
-                if (e instanceof RuntimeException) throw (RuntimeException)e;
-                logger.warn("依赖验证跳过: 无法解析package.json", e);
+                logger.warn("依赖验证跳过: " + e.getMessage());
             }
         }
     }
@@ -322,7 +322,15 @@ public class SmartCodeGeneratorService {
         return path.equals(pattern) || path.endsWith("/" + pattern) || path.contains("/" + pattern + "/");
     }
 
+    // 预置常用依赖列表（开放平台支持这些依赖）
+    private static final Set<String> BUILT_IN_DEPS = new HashSet<>(Arrays.asList(
+        "vue", "vue-router", "pinia", "ant-design-vue", "axios",
+        "file-saver", "lodash", "lodash-es", "dayjs", "clsx",
+        "echarts", "nprogress", "qrcode", "jszip", "dompurify",
+        "sass", "less", "tailwindcss", "mockjs"
+    ));
+    
     private boolean isBuiltIn(String pkgName) {
-        return Arrays.asList("vue", "vue-router", "pinia", "ant-design-vue", "axios").contains(pkgName);
+        return BUILT_IN_DEPS.contains(pkgName);
     }
 }

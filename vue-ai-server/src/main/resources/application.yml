@@ -10,5 +10,4 @@ spring:
     password:
   sql:
     init:
-      mode: always
-      schema-locations: classpath:schema.sql
+      mode: never

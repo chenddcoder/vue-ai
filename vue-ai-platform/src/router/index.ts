@@ -45,6 +45,18 @@ const router = createRouter({
       name: 'aiConfig',
       component: () => import('@/views/AIConfig.vue'),
       meta: { requiresAuth: false }
+    },
+    {
+      path: '/favorites',
+      name: 'favorites',
+      component: () => import('@/views/MyFavorites.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/profile/:userId?',
+      name: 'profile',
+      component: () => import('@/views/UserProfile.vue'),
+      meta: { requiresAuth: false }
     }
   ]
 })
