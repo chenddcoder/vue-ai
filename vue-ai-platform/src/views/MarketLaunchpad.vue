@@ -100,33 +100,71 @@
       </a-layout-content>
     </a-layout>
 
-    <div v-if="launchingApp" class="app-modal">
-      <div class="modal-backdrop" @click="closeApp"></div>
-      <div class="app-window">
-        <div class="app-window-header">
+    <TransitionGroup name="window-slide" tag="div" class="windows-container">
+      <div
+        v-for="win in windows"
+        :key="win.id"
+        v-show="!win.minimized"
+        class="app-window"
+        :class="{ 'is-fullscreen': win.isFullscreen }"
+        :style="win.isFullscreen ? {} : win.position"
+        @mousedown="startDrag($event, win)"
+      >
+        <div class="app-window-header" @mousedown="startDragHeader($event, win)">
           <div class="window-controls">
-            <span class="control close" @click="closeApp"></span>
-            <span class="control minimize"></span>
-            <span class="control maximize"></span>
+            <span class="control close" @click.stop="closeWindow(win)"></span>
+            <span class="control minimize" @click.stop="minimizeWindow(win)"></span>
+            <span class="control maximize" @click.stop="toggleFullscreen(win)"></span>
           </div>
-          <div class="window-title">{{ launchingApp.name }}</div>
+          <div class="window-title">{{ win.name }}</div>
           <div class="window-actions">
-            <a-button type="text" size="small" @click="toggleFullscreen">
-              <FullscreenOutlined v-if="!isFullscreen" />
+            <a-button
+              type="text"
+              size="small"
+              @click.stop="toggleFullscreen(win)"
+              :class="{ 'fullscreen-btn': true }"
+            >
+              <FullscreenOutlined v-if="!win.isFullscreen" />
               <FullscreenExitOutlined v-else />
             </a-button>
-            <a-button type="text" size="small" @click="openInNewTab">
+            <a-button type="text" size="small" @click.stop="openInNewTab(win)">
               <ExportOutlined />
             </a-button>
           </div>
         </div>
         <div class="app-window-content">
           <iframe
-            ref="appFrame"
+            :ref="el => setIframeRef(el, win.id)"
             class="app-frame"
-            :srcdoc="appHtml"
+            :srcdoc="win.html"
             sandbox="allow-scripts allow-same-origin"
           />
+        </div>
+      </div>
+    </TransitionGroup>
+
+    <div class="dock-bar" v-if="windows.length > 0">
+      <div class="dock-container">
+        <div
+          v-for="win in windows"
+          :key="win.id"
+          class="dock-item"
+          :class="{ 'is-active': !win.minimized, 'is-hovering': hoveredDockId === win.id }"
+          @click="handleDockClick(win)"
+          @mouseenter="hoveredDockId = win.id"
+          @mouseleave="hoveredDockId = null"
+        >
+          <div class="dock-icon">
+            <img v-if="win.thumbnail" :src="win.thumbnail" :alt="win.name" />
+            <div v-else class="dock-default-icon">
+              <AppstoreOutlined />
+            </div>
+          </div>
+          <div class="dock-indicator" v-if="!win.minimized"></div>
+        </div>
+        <div class="dock-separator" v-if="windows.length > 0"></div>
+        <div class="dock-trash" @click="closeAllWindows" title="关闭所有">
+          <DeleteOutlined />
         </div>
       </div>
     </div>
@@ -134,7 +172,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
@@ -145,10 +183,23 @@ import {
   AppstoreOutlined,
   FullscreenOutlined,
   FullscreenExitOutlined,
-  ExportOutlined
+  ExportOutlined,
+  DeleteOutlined
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { getMarketApps, getMarketAppDetail } from '@/api'
+
+interface WindowState {
+  id: number
+  name: string
+  content: any
+  thumbnail?: string
+  html: string
+  minimized: boolean
+  isFullscreen: boolean
+  isActive: boolean
+  position: { top: string; left: string; width: string; height: string; zIndex: number }
+}
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -158,9 +209,19 @@ const loading = ref(false)
 const searchKeyword = ref('')
 const selectedCategory = ref('')
 const hoveredAppId = ref<number | null>(null)
-const launchingApp = ref<any>(null)
-const appFrame = ref<HTMLIFrameElement | null>(null)
-const isFullscreen = ref(false)
+const hoveredDockId = ref<number | null>(null)
+const windows = ref<WindowState[]>([])
+const iframeRefs = ref<Record<number, HTMLIFrameElement | null>>({})
+
+let zIndexCounter = 1000
+let isDragging = false
+let dragWindow: WindowState | null = null
+let dragOffset = { x: 0, y: 0 }
+let dragStartPos = { x: 0, y: 0 }
+
+const setIframeRef = (el: any, id: number) => {
+  iframeRefs.value[id] = el as HTMLIFrameElement
+}
 
 const filteredApps = computed(() => {
   return apps.value.filter(app => {
@@ -173,12 +234,12 @@ const filteredApps = computed(() => {
   })
 })
 
-const appHtml = computed(() => {
-  if (!launchingApp.value?.content) {
+const generateAppHtml = (content: any, name: string) => {
+  if (!content) {
     return '<div style="display: flex; justify-content: center; align-items: center; height: 100vh; color: #999;"><span>加载中...</span></div>'
   }
 
-  const filesJson = JSON.stringify(launchingApp.value.content)
+  const filesJson = JSON.stringify(content)
   const filesEncoded = encodeURIComponent(filesJson)
 
   return `
@@ -187,7 +248,7 @@ const appHtml = computed(() => {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${launchingApp.value?.name || 'App'}</title>
+      <title>${name}</title>
       <script src="https://unpkg.com/vue@3/dist/vue.global.js"><\/script>
       <script src="https://unpkg.com/vue-router@4/dist/vue-router.global.js"><\/script>
       <script src="https://unpkg.com/dayjs/dayjs.min.js"><\/script>
@@ -224,29 +285,14 @@ const appHtml = computed(() => {
         
         const fileKeys = Object.keys(files);
         
-        const resolvePath = (basePath, relativePath) => {
-          const parts = basePath.split('/').filter(Boolean);
-          const relativeParts = relativePath.split('/').filter(Boolean);
-          
-          for (const part of relativeParts) {
-            if (part === '..') {
-              parts.pop();
-            } else if (part !== '.') {
-              parts.push(part);
-            }
-          }
-          
-          return parts.join('/');
-        };
-        
         const normalizePath = (path) => {
           if (path.startsWith('/')) path = path.slice(1);
           if (path.startsWith('./')) path = path.slice(2);
           return path;
         };
         
-        const getFileContent = (path) => {
-          const normalizedPath = normalizePath(path);
+        const getFileContent = (url) => {
+          const normalizedPath = normalizePath(url);
           
           if (files[normalizedPath]) {
             return files[normalizedPath];
@@ -274,7 +320,6 @@ const appHtml = computed(() => {
             return files[foundKey];
           }
           
-          console.warn('File not found:', path, 'Searched:', normalizedPath);
           return null;
         };
         
@@ -296,7 +341,6 @@ const appHtml = computed(() => {
             const retryContent = getFileContent(url);
             if (retryContent) return retryContent;
             
-            console.error('File not found:', url);
             return \`<template><div style="padding:20px;color:#666;">组件加载失败: \${url}</div></template>\`;
           },
           addStyle(textContent) {
@@ -322,7 +366,6 @@ const appHtml = computed(() => {
 
             app.mount('#app');
           }).catch(err => {
-            console.error('App load error:', err);
             document.getElementById('app').innerHTML = '<div style="padding:20px;color:#f5222d;">应用加载失败</div>';
           });
         };
@@ -336,7 +379,7 @@ const appHtml = computed(() => {
     </body>
     </html>
   `
-})
+}
 
 const goHome = () => {
   router.push('/project/new')
@@ -357,56 +400,176 @@ const logout = () => {
   message.success('已退出登录')
 }
 
-const handleSearch = () => {
-}
-
-const handleCategoryChange = () => {
-}
+const handleSearch = () => {}
+const handleCategoryChange = () => {}
 
 const launchApp = async (app: any) => {
-  // 先显示加载状态
-  launchingApp.value = { ...app, content: null }
+  const existingWindow = windows.value.find(w => w.id === app.id)
   
+  if (existingWindow) {
+    if (existingWindow.minimized) {
+      restoreWindow(existingWindow)
+    } else {
+      bringToFront(existingWindow)
+    }
+    return
+  }
+
+  const offset = windows.value.length % 5
+  const newWindow: WindowState = {
+    id: app.id,
+    name: app.name,
+    content: null,
+    thumbnail: app.thumbnail,
+    html: generateAppHtml(null, app.name),
+    minimized: false,
+    isFullscreen: false,
+    isActive: true,
+    position: {
+      top: `${80 + offset * 30}px`,
+      left: `${100 + offset * 40}px`,
+      width: '90vw',
+      height: '85vh',
+      zIndex: ++zIndexCounter
+    }
+  }
+  
+  windows.value.forEach(w => w.isActive = false)
+  windows.value.push(newWindow)
+  
+  nextTick(() => {
+    bringToFront(newWindow)
+  })
+
   try {
-    // 获取应用详情（包含完整代码内容）
     const res: any = await getMarketAppDetail(app.id)
     if (res.code === 200) {
-      launchingApp.value = { 
-        ...res.data, 
-        content: res.data.content || {} 
-      }
-      
-      if (appFrame.value) {
-        appFrame.value.focus()
+      const targetWindow = windows.value.find(w => w.id === app.id)
+      if (targetWindow) {
+        targetWindow.content = res.data.content
+        targetWindow.html = generateAppHtml(res.data.content, res.data.name)
       }
     } else {
       message.error(res.message || '加载应用失败')
-      launchingApp.value = null
+      const targetWindow = windows.value.find(w => w.id === app.id)
+      if (targetWindow) {
+        closeWindow(targetWindow)
+      }
     }
   } catch (error: any) {
     message.error('加载应用失败: ' + (error.message || '未知错误'))
-    launchingApp.value = null
+    const targetWindow = windows.value.find(w => w.id === app.id)
+    if (targetWindow) {
+      closeWindow(targetWindow)
+    }
   }
 }
 
-const closeApp = () => {
-  launchingApp.value = null
-}
-
-const toggleFullscreen = () => {
-  isFullscreen.value = !isFullscreen.value
-}
-
-const openInNewTab = () => {
-  if (launchingApp.value) {
-    const url = `/market/app/${launchingApp.value.id}`
-    window.open(url, '_blank')
+const closeWindow = (win: WindowState) => {
+  const index = windows.value.findIndex(w => w.id === win.id)
+  if (index > -1) {
+    windows.value.splice(index, 1)
   }
+}
+
+const minimizeWindow = (win: WindowState) => {
+  win.minimized = true
+  win.isActive = false
+  
+  const activeWindow = windows.value.find(w => !w.minimized)
+  if (activeWindow) {
+    activeWindow.isActive = true
+    bringToFront(activeWindow)
+  }
+}
+
+const restoreWindow = (win: WindowState) => {
+  win.minimized = false
+  windows.value.forEach(w => w.isActive = w.id === win.id)
+  bringToFront(win)
+}
+
+const handleDockClick = (win: WindowState) => {
+  if (win.minimized) {
+    restoreWindow(win)
+  } else if (!win.isActive) {
+    bringToFront(win)
+    windows.value.forEach(w => w.isActive = w.id === win.id)
+  } else {
+    minimizeWindow(win)
+  }
+}
+
+const toggleFullscreen = (win: WindowState) => {
+  win.isFullscreen = !win.isFullscreen
+  if (win.isFullscreen) {
+    bringToFront(win)
+  }
+}
+
+const bringToFront = (win: WindowState) => {
+  win.position.zIndex = ++zIndexCounter
+  windows.value.forEach(w => w.isActive = w.id === win.id)
+}
+
+const openInNewTab = (win: WindowState) => {
+  const url = `/market/app/${win.id}`
+  window.open(url, '_blank')
+}
+
+const closeAllWindows = () => {
+  windows.value = []
+}
+
+const startDrag = (e: MouseEvent, win: WindowState) => {
+  if (win.isFullscreen) return
+  bringToFront(win)
+}
+
+const startDragHeader = (e: MouseEvent, win: WindowState) => {
+  if (win.isFullscreen) return
+  isDragging = true
+  dragWindow = win
+  dragOffset = {
+    x: e.clientX - parseInt(win.position.left),
+    y: e.clientY - parseInt(win.position.top)
+  }
+  dragStartPos = {
+    x: e.clientX,
+    y: e.clientY
+  }
+  bringToFront(win)
+  
+  document.addEventListener('mousemove', onDrag)
+  document.addEventListener('mouseup', stopDrag)
+}
+
+const onDrag = (e: MouseEvent) => {
+  if (!isDragging || !dragWindow) return
+  
+  const newLeft = Math.max(0, e.clientX - dragOffset.x)
+  const newTop = Math.max(64, e.clientY - dragOffset.y)
+  
+  dragWindow.position = {
+    ...dragWindow.position,
+    top: `${newTop}px`,
+    left: `${newLeft}px`
+  }
+}
+
+const stopDrag = () => {
+  isDragging = false
+  dragWindow = null
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
 }
 
 const handleKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Escape') {
-    closeApp()
+    const activeWindow = windows.value.find(w => w.isActive && !w.minimized)
+    if (activeWindow) {
+      minimizeWindow(activeWindow)
+    }
   }
 }
 
@@ -591,55 +754,39 @@ onMounted(() => {
   padding: 60px 0;
 }
 
-.app-modal {
+.windows-container {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
+  pointer-events: none;
   z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.modal-backdrop {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
 }
 
 .app-window {
-  position: relative;
+  position: absolute;
   width: 90vw;
   height: 85vh;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: slideUp 0.3s ease;
-  z-index: 1001;
+  pointer-events: auto;
+  transition: box-shadow 0.3s ease;
 }
 
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.app-window:hover {
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
 }
 
-.app-window:fullscreen {
-  width: 100vw;
-  height: 100vh;
+.app-window.is-fullscreen {
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
   border-radius: 0;
 }
 
@@ -647,8 +794,14 @@ onMounted(() => {
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  background: #f5f5f5;
-  border-bottom: 1px solid #e8e8e8;
+  background: linear-gradient(180deg, #f8f8f8 0%, #e8e8e8 100%);
+  border-bottom: 1px solid #d9d9d9;
+  cursor: move;
+  user-select: none;
+}
+
+.app-window-header:hover {
+  background: linear-gradient(180deg, #f0f0f0 0%, #e0e0e0 100%);
 }
 
 .window-controls {
@@ -661,18 +814,35 @@ onMounted(() => {
   height: 12px;
   border-radius: 50%;
   cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.control:hover {
+  transform: scale(1.1);
 }
 
 .control.close {
   background: #ff5f57;
 }
 
+.control.close:hover {
+  background: #ff3b30;
+}
+
 .control.minimize {
   background: #febc2e;
 }
 
+.control.minimize:hover {
+  background: #f5a623;
+}
+
 .control.maximize {
   background: #28c840;
+}
+
+.control.maximize:hover {
+  background: #1db954;
 }
 
 .window-title {
@@ -680,11 +850,21 @@ onMounted(() => {
   text-align: center;
   font-size: 14px;
   color: #666;
+  font-weight: 500;
 }
 
 .window-actions {
   display: flex;
   gap: 4px;
+}
+
+.window-actions .ant-btn {
+  color: #666;
+}
+
+.window-actions .ant-btn:hover {
+  color: #1890ff;
+  background: rgba(24, 144, 255, 0.1);
 }
 
 .app-window-content {
@@ -696,5 +876,119 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   border: none;
+}
+
+.dock-bar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  pointer-events: auto;
+}
+
+.dock-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background: rgba(40, 40, 40, 0.85);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dock-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.dock-item:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-8px) scale(1.15);
+}
+
+.dock-item.is-active .dock-icon {
+  box-shadow: 0 0 12px rgba(24, 144, 255, 0.6);
+}
+
+.dock-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.dock-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dock-default-icon {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: white;
+}
+
+.dock-indicator {
+  width: 4px;
+  height: 4px;
+  background: #1890ff;
+  border-radius: 50%;
+  margin-top: 4px;
+}
+
+.dock-separator {
+  width: 1px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 0 8px;
+}
+
+.dock-trash {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dock-trash:hover {
+  background: rgba(255, 59, 48, 0.3);
+  color: #ff3b30;
+  transform: translateY(-4px);
+}
+
+.window-slide-enter-active,
+.window-slide-leave-active {
+  transition: all 0.3s ease;
+}
+
+.window-slide-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.window-slide-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
 }
 </style>

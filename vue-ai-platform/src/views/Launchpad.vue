@@ -20,7 +20,7 @@
 
       <div class="filter-section">
         <a-space>
-          <a-radio-group v-model:value="selectedCategory" @change="handleCategoryChange">
+          <a-radio-group v-model:value="selectedCategory" @change="handleCategoryChange" buttonStyle="solid">
             <a-radio-button value="">全部</a-radio-button>
             <a-radio-button value="工具">工具</a-radio-button>
             <a-radio-button value="游戏">游戏</a-radio-button>
@@ -60,43 +60,97 @@
       </div>
     </div>
 
-    <div v-if="launchingApp" class="app-window">
-      <div class="app-window-header">
-        <div class="window-controls">
-          <span class="control close" @click="closeApp"></span>
-          <span class="control minimize"></span>
-          <span class="control maximize"></span>
+    <TransitionGroup name="window-slide" tag="div" class="windows-container">
+      <div
+        v-for="win in windows"
+        :key="win.id"
+        v-show="!win.minimized"
+        class="app-window"
+        :class="{ 'is-fullscreen': win.isFullscreen }"
+        :style="win.isFullscreen ? {} : win.position"
+        @mousedown="startDrag($event, win)"
+      >
+        <div class="app-window-header" @mousedown="startDragHeader($event, win)">
+          <div class="window-controls">
+            <span class="control close" @click.stop="closeWindow(win)"></span>
+            <span class="control minimize" @click.stop="minimizeWindow(win)"></span>
+            <span class="control maximize" @click.stop="toggleFullscreen(win)"></span>
+          </div>
+          <div class="window-title">{{ win.name }}</div>
+          <div class="window-actions">
+            <a-button
+              type="text"
+              size="small"
+              @click.stop="toggleFullscreen(win)"
+              :class="{ 'fullscreen-btn': true }"
+            >
+              <FullscreenOutlined v-if="!win.isFullscreen" />
+              <FullscreenExitOutlined v-else />
+            </a-button>
+          </div>
         </div>
-        <div class="window-title">{{ launchingApp.name }}</div>
-        <div class="window-actions">
-          <a-button type="text" size="small" @click="toggleFullscreen">
-            <FullscreenOutlined v-if="!isFullscreen" />
-            <FullscreenExitOutlined v-else />
-          </a-button>
+        <div class="app-window-content">
+          <iframe
+            :ref="el => setIframeRef(el, win.id)"
+            class="app-frame"
+            :srcdoc="win.html"
+            sandbox="allow-scripts allow-same-origin"
+          />
         </div>
       </div>
-      <div class="app-window-content">
-        <iframe
-          ref="appFrame"
-          class="app-frame"
-          :srcdoc="appHtml"
-          sandbox="allow-scripts allow-same-origin"
-        />
+    </TransitionGroup>
+
+    <div class="dock-bar" v-if="windows.length > 0">
+      <div class="dock-container">
+        <div
+          v-for="win in windows"
+          :key="win.id"
+          class="dock-item"
+          :class="{ 'is-active': !win.minimized, 'is-hovering': hoveredDockId === win.id }"
+          @click="handleDockClick(win)"
+          @mouseenter="hoveredDockId = win.id"
+          @mouseleave="hoveredDockId = null"
+        >
+          <div class="dock-icon">
+            <img v-if="win.thumbnail" :src="win.thumbnail" :alt="win.name" />
+            <div v-else class="dock-default-icon">
+              <AppstoreOutlined />
+            </div>
+          </div>
+          <div class="dock-indicator" v-if="!win.minimized"></div>
+        </div>
+        <div class="dock-separator" v-if="windows.length > 0"></div>
+        <div class="dock-trash" @click="closeAllWindows" title="关闭所有">
+          <DeleteOutlined />
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { message } from 'ant-design-vue'
 import {
   CloseOutlined,
   AppstoreOutlined,
   FullscreenOutlined,
-  FullscreenExitOutlined
+  FullscreenExitOutlined,
+  DeleteOutlined
 } from '@ant-design/icons-vue'
 import { getMarketApps } from '@/api'
+
+interface WindowState {
+  id: number
+  name: string
+  content: any
+  thumbnail?: string
+  html: string
+  minimized: boolean
+  isFullscreen: boolean
+  isActive: boolean
+  position: { top: string; left: string; width: string; height: string; zIndex: number }
+}
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -107,9 +161,18 @@ const selectedCategory = ref('')
 const apps = ref<any[]>([])
 const loading = ref(true)
 const hoveringAppId = ref<number | null>(null)
-const launchingApp = ref<any>(null)
-const appFrame = ref<HTMLIFrameElement | null>(null)
-const isFullscreen = ref(false)
+const hoveredDockId = ref<number | null>(null)
+const windows = ref<WindowState[]>([])
+const iframeRefs = ref<Record<number, HTMLIFrameElement | null>>({})
+
+let zIndexCounter = 1000
+let isDragging = false
+let dragWindow: WindowState | null = null
+let dragOffset = { x: 0, y: 0 }
+
+const setIframeRef = (el: any, id: number) => {
+  iframeRefs.value[id] = el as HTMLIFrameElement
+}
 
 const filteredApps = computed(() => {
   return apps.value.filter(app => {
@@ -122,12 +185,12 @@ const filteredApps = computed(() => {
   })
 })
 
-const appHtml = computed(() => {
-  if (!launchingApp.value?.content) {
+const generateAppHtml = (content: any, name: string) => {
+  if (!content) {
     return '<div style="display: flex; justify-content: center; align-items: center; height: 100vh; color: #999;"><span>加载中...</span></div>'
   }
 
-  const filesJson = JSON.stringify(launchingApp.value.content)
+  const filesJson = JSON.stringify(content)
   const filesEncoded = encodeURIComponent(filesJson)
 
   return `
@@ -136,7 +199,7 @@ const appHtml = computed(() => {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${launchingApp.value?.name || 'App'}</title>
+      <title>${name}</title>
       <script src="https://unpkg.com/vue@3/dist/vue.global.js"><\/script>
       <script src="https://unpkg.com/vue-router@4/dist/vue-router.global.js"><\/script>
       <script src="https://unpkg.com/dayjs/dayjs.min.js"><\/script>
@@ -208,7 +271,6 @@ const appHtml = computed(() => {
             return files[foundKey];
           }
           
-          console.warn('File not found:', url, 'Searched:', normalizedPath);
           return null;
         };
         
@@ -230,7 +292,6 @@ const appHtml = computed(() => {
             const retryContent = getFileContent(url);
             if (retryContent) return retryContent;
             
-            console.error('File not found:', url);
             return \`<template><div style="padding:20px;color:#666;">组件加载失败: \${url}</div></template>\`;
           },
           addStyle(textContent) {
@@ -256,7 +317,6 @@ const appHtml = computed(() => {
 
             app.mount('#app');
           }).catch(err => {
-            console.error('App load error:', err);
             document.getElementById('app').innerHTML = '<div style="padding:20px;color:#f5222d;">应用加载失败</div>';
           });
         };
@@ -270,7 +330,7 @@ const appHtml = computed(() => {
     </body>
     </html>
   `
-})
+}
 
 const handleMouseEnter = (id: number) => {
   hoveringAppId.value = id
@@ -280,37 +340,151 @@ const handleMouseLeave = () => {
   hoveringAppId.value = null
 }
 
-const handleSearch = () => {
-}
-
-const handleCategoryChange = () => {
-}
+const handleSearch = () => {}
+const handleCategoryChange = () => {}
 
 const launchApp = (app: any) => {
-  launchingApp.value = app
-  if (appFrame.value) {
-    appFrame.value.focus()
+  const existingWindow = windows.value.find(w => w.id === app.id)
+  
+  if (existingWindow) {
+    if (existingWindow.minimized) {
+      restoreWindow(existingWindow)
+    } else {
+      bringToFront(existingWindow)
+    }
+    return
+  }
+
+  const offset = windows.value.length % 5
+  const newWindow: WindowState = {
+    id: app.id,
+    name: app.name,
+    content: app.content,
+    thumbnail: app.thumbnail,
+    html: generateAppHtml(app.content, app.name),
+    minimized: false,
+    isFullscreen: false,
+    isActive: true,
+    position: {
+      top: `${80 + offset * 30}px`,
+      left: `${100 + offset * 40}px`,
+      width: 'calc(100vw - 100px)',
+      height: 'calc(100vh - 130px)',
+      zIndex: ++zIndexCounter
+    }
+  }
+  
+  windows.value.forEach(w => w.isActive = false)
+  windows.value.push(newWindow)
+  
+  nextTick(() => {
+    bringToFront(newWindow)
+  })
+}
+
+const closeWindow = (win: WindowState) => {
+  const index = windows.value.findIndex(w => w.id === win.id)
+  if (index > -1) {
+    windows.value.splice(index, 1)
   }
 }
 
-const closeApp = () => {
-  launchingApp.value = null
+const minimizeWindow = (win: WindowState) => {
+  win.minimized = true
+  win.isActive = false
+  
+  const activeWindow = windows.value.find(w => !w.minimized)
+  if (activeWindow) {
+    activeWindow.isActive = true
+    bringToFront(activeWindow)
+  }
 }
 
-const toggleFullscreen = () => {
-  isFullscreen.value = !isFullscreen.value
+const restoreWindow = (win: WindowState) => {
+  win.minimized = false
+  windows.value.forEach(w => w.isActive = w.id === win.id)
+  bringToFront(win)
+}
+
+const handleDockClick = (win: WindowState) => {
+  if (win.minimized) {
+    restoreWindow(win)
+  } else if (!win.isActive) {
+    bringToFront(win)
+    windows.value.forEach(w => w.isActive = w.id === win.id)
+  } else {
+    minimizeWindow(win)
+  }
+}
+
+const toggleFullscreen = (win: WindowState) => {
+  win.isFullscreen = !win.isFullscreen
+  if (win.isFullscreen) {
+    bringToFront(win)
+  }
+}
+
+const bringToFront = (win: WindowState) => {
+  win.position.zIndex = ++zIndexCounter
+  windows.value.forEach(w => w.isActive = w.id === win.id)
+}
+
+const closeAllWindows = () => {
+  windows.value = []
+}
+
+const startDrag = (e: MouseEvent, win: WindowState) => {
+  if (win.isFullscreen) return
+  bringToFront(win)
+}
+
+const startDragHeader = (e: MouseEvent, win: WindowState) => {
+  if (win.isFullscreen) return
+  isDragging = true
+  dragWindow = win
+  dragOffset = {
+    x: e.clientX - parseInt(win.position.left),
+    y: e.clientY - parseInt(win.position.top)
+  }
+  bringToFront(win)
+  
+  document.addEventListener('mousemove', onDrag)
+  document.addEventListener('mouseup', stopDrag)
+}
+
+const onDrag = (e: MouseEvent) => {
+  if (!isDragging || !dragWindow) return
+  
+  const newLeft = Math.max(0, e.clientX - dragOffset.x)
+  const newTop = Math.max(64, e.clientY - dragOffset.y)
+  
+  dragWindow.position = {
+    ...dragWindow.position,
+    top: `${newTop}px`,
+    left: `${newLeft}px`
+  }
+}
+
+const stopDrag = () => {
+  isDragging = false
+  dragWindow = null
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
 }
 
 const handleClose = () => {
-  if (!launchingApp.value) {
+  if (windows.value.length === 0) {
     emit('close')
   }
 }
 
 const handleKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Escape') {
-    if (launchingApp.value) {
-      closeApp()
+    if (windows.value.length > 0) {
+      const activeWindow = windows.value.find(w => w.isActive && !w.minimized)
+      if (activeWindow) {
+        minimizeWindow(activeWindow)
+      }
     } else {
       emit('close')
     }
@@ -511,37 +685,37 @@ onUnmounted(() => {
   justify-content: center;
 }
 
-.app-window {
+.windows-container {
   position: fixed;
-  top: 50px;
-  left: 50px;
-  right: 50px;
-  bottom: 50px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  animation: slideUp 0.3s ease;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.app-window:fullscreen {
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.app-window {
+  position: absolute;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  pointer-events: auto;
+  transition: box-shadow 0.3s ease;
+}
+
+.app-window:hover {
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+}
+
+.app-window.is-fullscreen {
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
   border-radius: 0;
 }
 
@@ -549,8 +723,14 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  background: #f5f5f5;
-  border-bottom: 1px solid #e8e8e8;
+  background: linear-gradient(180deg, #f8f8f8 0%, #e8e8e8 100%);
+  border-bottom: 1px solid #d9d9d9;
+  cursor: move;
+  user-select: none;
+}
+
+.app-window-header:hover {
+  background: linear-gradient(180deg, #f0f0f0 0%, #e0e0e0 100%);
 }
 
 .window-controls {
@@ -563,18 +743,35 @@ onUnmounted(() => {
   height: 12px;
   border-radius: 50%;
   cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.control:hover {
+  transform: scale(1.1);
 }
 
 .control.close {
   background: #ff5f57;
 }
 
+.control.close:hover {
+  background: #ff3b30;
+}
+
 .control.minimize {
   background: #febc2e;
 }
 
+.control.minimize:hover {
+  background: #f5a623;
+}
+
 .control.maximize {
   background: #28c840;
+}
+
+.control.maximize:hover {
+  background: #1db954;
 }
 
 .window-title {
@@ -582,11 +779,21 @@ onUnmounted(() => {
   text-align: center;
   font-size: 14px;
   color: #666;
+  font-weight: 500;
 }
 
 .window-actions {
-  width: 60px;
-  text-align: right;
+  display: flex;
+  gap: 4px;
+}
+
+.window-actions .ant-btn {
+  color: #666;
+}
+
+.window-actions .ant-btn:hover {
+  color: #1890ff;
+  background: rgba(24, 144, 255, 0.1);
 }
 
 .app-window-content {
@@ -598,5 +805,119 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   border: none;
+}
+
+.dock-bar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  pointer-events: auto;
+}
+
+.dock-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background: rgba(40, 40, 40, 0.85);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dock-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.dock-item:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-8px) scale(1.15);
+}
+
+.dock-item.is-active .dock-icon {
+  box-shadow: 0 0 12px rgba(24, 144, 255, 0.6);
+}
+
+.dock-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.dock-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dock-default-icon {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: white;
+}
+
+.dock-indicator {
+  width: 4px;
+  height: 4px;
+  background: #1890ff;
+  border-radius: 50%;
+  margin-top: 4px;
+}
+
+.dock-separator {
+  width: 1px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 0 8px;
+}
+
+.dock-trash {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dock-trash:hover {
+  background: rgba(255, 59, 48, 0.3);
+  color: #ff3b30;
+  transform: translateY(-4px);
+}
+
+.window-slide-enter-active,
+.window-slide-leave-active {
+  transition: all 0.3s ease;
+}
+
+.window-slide-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.window-slide-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
 }
 </style>
