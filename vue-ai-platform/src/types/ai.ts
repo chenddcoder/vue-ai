@@ -4,7 +4,7 @@ export interface AIProvider {
   id: string
   name: string
   displayName: string
-  type: 'openai' | 'anthropic' | 'azure' | 'local' | 'custom'
+  type: 'openai' | 'anthropic' | 'azure' | 'local' | 'custom' | 'qwen'
   models: AIModel[]
   required: string[]
   optional: string[]

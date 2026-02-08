@@ -27,6 +27,15 @@
             保存
           </a-button>
           
+          <span v-if="projectStore.hasUnsavedChanges()" class="save-status">
+            <ClockCircleOutlined style="color: #faad14; margin-right: 4px" />
+            未保存
+          </span>
+          <span v-else-if="projectStore.lastAutoSaveTime" class="save-status">
+            <CheckCircleOutlined style="color: #52c41a; margin-right: 4px" />
+            已保存 {{ formatTime(projectStore.lastAutoSaveTime) }}
+          </span>
+          
           <a-button type="primary" @click="showPublishModal" :disabled="userStore.isGuest" danger>
             <template #icon><CloudUploadOutlined /></template>
             发布
@@ -34,14 +43,21 @@
           
           <a-dropdown v-if="userStore.currentUser">
             <a-button type="text" class="user-btn">
-              <UserOutlined />
+              <a-avatar :src="userStore.currentUser.avatar" :size="24" style="margin-right: 8px">
+                <template #icon><UserOutlined /></template>
+              </a-avatar>
               {{ userStore.currentUser.username }}
               <span v-if="userStore.isGuest" class="guest-badge">游客</span>
               <DownOutlined />
             </a-button>
             <template #overlay>
               <a-menu>
-                <a-menu-item @click="goAIConfig">
+                <a-menu-item @click="showAvatarModal">
+                  <UserOutlined />
+                  更换头像
+                </a-menu-item>
+                <a-menu-divider v-if="!userStore.isGuest" />
+                <a-menu-item @click="goAIConfig" v-if="!userStore.isGuest">
                   <RobotOutlined />
                   AI配置
                 </a-menu-item>
@@ -135,6 +151,30 @@
       </a-form-item>
     </a-form>
   </a-modal>
+
+  <!-- 头像上传弹窗 -->
+  <a-modal
+    v-model:visible="avatarModalVisible"
+    title="更换头像"
+    @ok="handleAvatarSave"
+    :confirmLoading="avatarUploading"
+    okText="保存"
+  >
+    <a-form layout="vertical">
+      <a-form-item label="选择头像">
+        <a-avatar :src="previewAvatar" :size="100" style="margin-bottom: 16px">
+          <template #icon><UserOutlined /></template>
+        </a-avatar>
+        <a-input-search
+          v-model:value="avatarUrl"
+          placeholder="输入头像图片URL"
+          enter-button="预览"
+          @search="previewAvatar = avatarUrl"
+        />
+        <p style="margin-top: 8px; color: #999; font-size: 12px;">提示：可以直接粘贴图片链接，如 https://api.dicebear.com/7.x/avataaars/svg?seed=...</p>
+      </a-form-item>
+    </a-form>
+  </a-modal>
 </template>
 
 <script setup lang="ts">
@@ -149,7 +189,9 @@ import {
   LogoutOutlined,
   LoginOutlined,
   AppstoreOutlined,
-  RobotOutlined
+  RobotOutlined,
+  ClockCircleOutlined,
+  CheckCircleOutlined
 } from '@ant-design/icons-vue'
 import FileTree from '@/components/FileTree.vue'
 import MonacoEditor from '@/components/editor/MonacoEditor.vue'
@@ -157,7 +199,7 @@ import Preview from '@/components/preview/Preview.vue'
 import AIAssistant from '@/components/editor/AIAssistant.vue'
 import { useProjectStore } from '@/stores/project'
 import { useUserStore } from '@/stores/user'
-import { saveProject, publishApp, getProject } from '@/api'
+import { saveProject, publishApp, getProject, updateUserAvatar } from '@/api'
 
 const router = useRouter()
 const route = useRoute()
@@ -180,6 +222,66 @@ const publishForm = ref({
   tags: [] as string[],
   isOpenSource: true
 })
+
+const avatarModalVisible = ref(false)
+const avatarUploading = ref(false)
+const avatarUrl = ref('')
+const previewAvatar = ref('')
+
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
+
+const formatTime = (date: Date) => {
+  return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
+
+const triggerAutoSave = () => {
+  if (!projectStore.autoSaveEnabled || projectStore.isAutoSaving) return
+  
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+  }
+  
+  autoSaveTimer = setTimeout(async () => {
+    if (!projectStore.hasUnsavedChanges()) return
+    
+    projectStore.isAutoSaving = true
+    try {
+      const projectId = route.params.id === 'new' ? undefined : Number(route.params.id)
+      if (!projectId && !projectStore.currentProjectId) {
+        projectStore.isAutoSaving = false
+        return
+      }
+      
+      const res: any = await saveProject({
+        id: projectStore.currentProjectId || projectId,
+        name: projectStore.projectName || '未命名项目',
+        description: 'Vue AI Project',
+        ownerId: userStore.currentUser?.id || 0,
+        content: projectStore.files
+      })
+      
+      if (res.code === 200) {
+        projectStore.lastAutoSaveTime = new Date()
+        const savedProjectId = res.data?.id
+        if (savedProjectId && !projectStore.currentProjectId) {
+          projectStore.setCurrentProjectId(savedProjectId)
+          projectStore.setProjectName(res.data.name)
+          if (route.params.id === 'new') {
+            router.replace(`/project/${savedProjectId}`)
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error('Auto save failed:', err.message)
+    } finally {
+      projectStore.isAutoSaving = false
+    }
+  }, projectStore.autoSaveDelay)
+}
+
+watch(() => projectStore.files, () => {
+  triggerAutoSave()
+}, { deep: true })
 
 const loadProject = async () => {
   const projectId = route.params.id
@@ -409,6 +511,35 @@ const handlePublish = async () => {
     message.error('发布失败: ' + (err.message || '未知错误'))
   } finally {
     publishing.value = false
+  }
+}
+
+const showAvatarModal = () => {
+  avatarUrl.value = userStore.currentUser?.avatar || ''
+  previewAvatar.value = avatarUrl.value
+  avatarModalVisible.value = true
+}
+
+const handleAvatarSave = async () => {
+  if (!avatarUrl.value.trim()) {
+    message.error('请输入头像URL')
+    return
+  }
+  
+  avatarUploading.value = true
+  try {
+    const res: any = await updateUserAvatar(userStore.currentUser!.id, avatarUrl.value)
+    if (res.code === 200) {
+      message.success('头像更新成功！')
+      userStore.setUser(res.data)
+      avatarModalVisible.value = false
+    } else {
+      message.error(res.message || '头像更新失败')
+    }
+  } catch (err: any) {
+    message.error('头像更新失败: ' + err.message)
+  } finally {
+    avatarUploading.value = false
   }
 }
 </script>

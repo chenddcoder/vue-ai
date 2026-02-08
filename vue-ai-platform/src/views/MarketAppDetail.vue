@@ -150,6 +150,16 @@
                 type="default" 
                 size="large" 
                 block 
+                @click="handleShare"
+                style="margin-top: 12px"
+              >
+                <ShareAltOutlined />
+                分享
+              </a-button>
+              <a-button 
+                type="default" 
+                size="large" 
+                block 
                 @click="useApp"
                 style="margin-top: 12px"
                 :disabled="!appInfo.isOpenSource"
@@ -195,7 +205,8 @@ import {
   FolderOutlined,
   FolderOpenOutlined,
   RightOutlined,
-  LockOutlined
+  LockOutlined,
+  ShareAltOutlined
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useProjectStore } from '@/stores/project'
@@ -476,6 +487,17 @@ const editApp = () => {
   if (appInfo.value.content) {
     projectStore.files = { ...appInfo.value.content }
     router.push(`/project/${appInfo.value.projectId}`)
+  }
+}
+
+// 分享应用
+const handleShare = async () => {
+  const shareUrl = window.location.href
+  try {
+    await navigator.clipboard.writeText(shareUrl)
+    message.success('分享链接已复制到剪贴板！')
+  } catch (err) {
+    message.error('复制失败，请手动复制链接')
   }
 }
 

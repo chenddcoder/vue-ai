@@ -111,9 +111,42 @@ public class AuthController {
             Map<String, Object> userData = new HashMap<>();
             userData.put("id", user.get("id"));
             userData.put("username", user.get("username"));
-            userData.put("avatar", "");
+            userData.put("avatar", user.get("avatar") != null ? user.get("avatar") : "");
             userData.put("role", user.get("role"));
             result.put("data", userData);
+            result.put("token", "token_" + user.get("id")); 
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+    
+    @PostMapping("/avatar")
+    public Map<String, Object> updateAvatar(@RequestBody Map<String, Object> body) {
+        Integer userId = (Integer) body.get("userId");
+        String avatar = (String) body.get("avatar");
+        
+        Map<String, Object> result = new HashMap<>();
+        try {
+            jdbcTemplate.update("UPDATE magic_sys_user SET avatar = ? WHERE id = ?", avatar, userId);
+            
+            List<Map<String, Object>> users = jdbcTemplate.queryForList(
+                "SELECT * FROM magic_sys_user WHERE id = ?", userId);
+            if (!users.isEmpty()) {
+                Map<String, Object> user = users.get(0);
+                result.put("code", 200);
+                result.put("message", "Avatar updated successfully");
+                Map<String, Object> userData = new HashMap<>();
+                userData.put("id", user.get("id"));
+                userData.put("username", user.get("username"));
+                userData.put("avatar", user.get("avatar") != null ? user.get("avatar") : "");
+                userData.put("role", user.get("role"));
+                result.put("data", userData);
+            } else {
+                result.put("code", 404);
+                result.put("message", "User not found");
+            }
         } catch (Exception e) {
             result.put("code", 500);
             result.put("message", e.getMessage());

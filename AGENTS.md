@@ -93,6 +93,21 @@ cd vue-ai-platform
 pnpm test
 ```
 
+### Verifying Code
+
+After completing any feature, always verify the code compiles without errors:
+
+```bash
+# Frontend: Run TypeScript check and build
+cd vue-ai-platform
+pnpm vue-tsc -b  # TypeScript type checking
+npx cross-env NODE_OPTIONS=--max-old-space-size=4096 vite build  # Production build
+
+# Backend: Compile the project
+cd vue-ai-server
+mvn compile
+```
+
 ## Configuration Files
 
 - `vue-ai-platform/package.json`: Frontend dependencies and scripts

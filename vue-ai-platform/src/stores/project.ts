@@ -1,5 +1,8 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
+let lastSavedContent: string = ''
 
 export const useProjectStore = defineStore('project', () => {
   const files = ref<Record<string, string>>({
@@ -16,6 +19,10 @@ h1 { color: red; }
   const currentProjectId = ref<number | null>(null)
   const fromMyApps = ref(false)
   const projectName = ref('')
+  const lastAutoSaveTime = ref<Date | null>(null)
+  const isAutoSaving = ref(false)
+  const autoSaveEnabled = ref(true)
+  const autoSaveDelay = 3000
 
   function updateFile(filename: string, content: string) {
     files.value[filename] = content
@@ -43,13 +50,14 @@ h1 { color: red; }
 
   function setFiles(newFiles: Record<string, string>) {
     files.value = newFiles
+    lastSavedContent = JSON.stringify(newFiles)
   }
 
   function clearProjectContext() {
     currentProjectId.value = null
     fromMyApps.value = false
     projectName.value = ''
-    // Reset files to default template or empty
+    lastAutoSaveTime.value = null
     files.value = {
       'App.vue': `<template>
   <h1>Hello World</h1>
@@ -61,6 +69,15 @@ h1 { color: red; }
 </style>`
     }
     activeFile.value = 'App.vue'
+    lastSavedContent = JSON.stringify(files.value)
+  }
+
+  function getContentHash(): string {
+    return JSON.stringify(files.value)
+  }
+
+  function hasUnsavedChanges(): boolean {
+    return getContentHash() !== lastSavedContent
   }
 
   return { 
@@ -76,6 +93,12 @@ h1 { color: red; }
     setCurrentProjectId,
     setFromMyApps,
     setProjectName,
-    clearProjectContext
+    clearProjectContext,
+    lastAutoSaveTime,
+    isAutoSaving,
+    autoSaveEnabled,
+    autoSaveDelay,
+    getContentHash,
+    hasUnsavedChanges
   }
 })

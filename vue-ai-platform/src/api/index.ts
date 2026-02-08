@@ -20,6 +20,10 @@ export const getUserInfo = () => {
   return request.get<ApiResponse>('/api/auth/user')
 }
 
+export const updateUserAvatar = (userId: number, avatar: string) => {
+  return request.post<ApiResponse>('/api/auth/avatar', { userId, avatar })
+}
+
 // 项目相关
 export const getProjectList = (userId: number) => {
   return request.get<ApiResponse>('/api/project/list', { params: { userId } })

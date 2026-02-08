@@ -20,8 +20,16 @@ public class InitDb {
                 "username TEXT NOT NULL UNIQUE," +
                 "password TEXT NOT NULL," +
                 "role TEXT DEFAULT 'user'," +
+                "avatar TEXT," +
                 "create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                 ")");
+        
+        // Add avatar column if not exists (for existing database)
+        try {
+            jdbcTemplate.execute("ALTER TABLE magic_sys_user ADD COLUMN avatar TEXT");
+        } catch (Exception e) {
+            // Column might already exist
+        }
         
         // Create magic_sys_project table
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS magic_sys_project (" +
