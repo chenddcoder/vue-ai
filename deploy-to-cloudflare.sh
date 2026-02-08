@@ -48,22 +48,3 @@ if [ $? -ne 0 ]; then
     echo -e "${RED}构建失败！请检查错误信息。${NC}"
     exit 1
 fi
-
-# 4. 部署到 Cloudflare
-echo -e "${GREEN}准备部署到 Cloudflare Pages...${NC}"
-echo "如果你是第一次运行，可能需要浏览器登录 Cloudflare 授权。"
-
-# 检查是否安装了 wrangler，如果没有则使用 npx
-WRANGLER_CMD="npx wrangler"
-
-
-# 交互式部署
-echo "正在启动部署..."
-$WRANGLER_CMD pages deploy dist --project-name=vue-ai
-
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}=== 部署成功！ ===${NC}"
-    echo -e "请确保你的后端服务配置了允许 Cloudflare 域名的 CORS (跨域资源共享)。"
-else
-    echo -e "${RED}部署失败。${NC}"
-fi
