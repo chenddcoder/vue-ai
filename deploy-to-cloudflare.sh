@@ -21,7 +21,7 @@ cd vue-ai-platform
 if [ ! -f .env.production ]; then
     echo -e "${YELLOW}警告: 未找到 .env.production 文件${NC}"
     echo "正在创建 .env.production 模板..."
-    echo "VITE_API_BASE_URL=https://your-backend-api.com" > .env.production
+    echo "VITE_API_BASE_URL=https://vue-ai.chenddcoder.cn" > .env.production
     echo -e "${RED}请编辑 vue-ai-platform/.env.production 文件，填入你实际的后端 API 地址！${NC}"
     echo -e "${RED}例如: VITE_API_BASE_URL=https://api.example.com${NC}"
     read -p "修改完成后按回车继续..."
