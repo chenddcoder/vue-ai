@@ -77,11 +77,14 @@
               v-for="app in filteredApps"
               :key="app.id"
               class="app-item"
-              @click="openAppDetail(app)"
+              @click="launchApp(app)"
               @mouseenter="hoveredAppId = app.id"
               @mouseleave="hoveredAppId = null"
             >
               <div class="app-icon-wrapper" :class="{ 'is-hovering': hoveredAppId === app.id }">
+                <div class="more-btn" v-if="hoveredAppId === app.id" @click.stop="openAppDetail(app)">
+                  <MoreOutlined />
+                </div>
                 <div class="app-icon">
                   <img v-if="app.thumbnail" :src="app.thumbnail" :alt="app.name" />
                   <div v-else class="default-icon">
@@ -197,6 +200,7 @@ import {
   LogoutOutlined,
   LoginOutlined,
   AppstoreOutlined,
+  MoreOutlined,
   FullscreenOutlined,
   FullscreenExitOutlined,
   ExportOutlined,
@@ -438,6 +442,9 @@ const openAppDetail = (app: any) => {
 }
 
 const launchApp = async (app: any) => {
+  // 关闭详情弹窗
+  detailModalVisible.value = false
+  
   const existingWindow = windows.value.find(w => w.id === app.id)
   
   if (existingWindow) {
@@ -729,6 +736,29 @@ onMounted(() => {
   align-items: center;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   transition: all 0.3s ease;
+  position: relative;
+}
+
+.more-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  color: #666;
+  transition: all 0.2s;
+  z-index: 2;
+}
+
+.more-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #1890ff;
 }
 
 .app-icon-wrapper.is-hovering {
