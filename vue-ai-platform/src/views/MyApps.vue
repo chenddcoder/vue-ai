@@ -48,6 +48,9 @@
                     <p class="project-desc">{{ project.description || '暂无描述' }}</p>
                     <div class="project-meta">
                       <span>更新于 {{ project.updateTime }}</span>
+                      <a-tag v-if="project.publishedAppId" color="green" style="margin-left: 8px">
+                        已发布 v{{ project.publishedVersion }}
+                      </a-tag>
                     </div>
                     <template #actions>
                       <a-button type="link" @click="editProject(project)">
@@ -60,11 +63,11 @@
                       </a-button>
                       <a-button 
                         type="link" 
-                        @click="publishProject(project)"
-                        v-if="!project.published"
+                        @click="handlePublish(project)"
+                        :class="{ 'published-btn': project.publishedAppId }"
                       >
                         <CloudUploadOutlined />
-                        发布
+                        {{ project.publishedAppId ? '更新' : '发布' }}
                       </a-button>
                       <a-button 
                         type="link" 
@@ -92,11 +95,12 @@
                 <a-col :xs="24" :sm="12" :md="8" :lg="6" v-for="app in publishedApps" :key="app.id">
                   <a-card class="app-card" :title="app.name">
                     <p class="app-desc">{{ app.description || '暂无描述' }}</p>
-                    <div class="app-stats">
-                      <a-space>
-                        <span><EyeOutlined /> {{ app.views }}</span>
-                        <span><LikeOutlined /> {{ app.likes }}</span>
-                      </a-space>
+                    <div class="app-meta-row">
+                      <a-tag color="blue">v{{ app.version }}</a-tag>
+                      <span class="app-stats">
+                        <EyeOutlined /> {{ app.views }}
+                        <LikeOutlined /> {{ app.likes }}
+                      </span>
                     </div>
                     <div class="app-meta">
                       <span>发布于 {{ app.publishDate }}</span>
@@ -105,6 +109,10 @@
                       <a-button type="link" @click="viewApp(app.id)">
                         <EyeOutlined />
                         查看
+                      </a-button>
+                      <a-button type="link" @click="openVersionHistory(app)">
+                        <HistoryOutlined />
+                        版本历史
                       </a-button>
                       <a-button 
                         type="link" 
@@ -128,18 +136,31 @@
     </a-layout-content>
   </a-layout>
 
-  <!-- 发布项目弹窗 -->
+  <!-- 发布/更新项目弹窗 -->
   <a-modal
     v-model:visible="publishModalVisible"
-    title="发布应用到市场"
-    @ok="handlePublish"
+    :title="isUpdate ? '更新应用' : '发布应用到市场'"
+    @ok="handlePublishSubmit"
     :confirmLoading="publishing"
-    okText="发布"
+    :okText="isUpdate ? '更新' : '发布'"
   >
     <a-form :model="publishForm" layout="vertical">
-      <a-form-item label="应用名称" required>
-        <a-input v-model:value="publishForm.name" placeholder="给你的应用起个名字" />
+      <a-form-item :label="isUpdate ? '版本号' : '应用名称'" :required="!isUpdate">
+        <template v-if="isUpdate">
+          <a-space direction="vertical" style="width: 100%">
+            <div class="version-info">
+              <span class="current-version">当前版本: v{{ publishForm.currentVersion }}</span>
+            </div>
+            <a-radio-group v-model:value="publishForm.versionType">
+              <a-radio value="patch">补丁版 (v{{ publishForm.currentVersion }} → v{{ nextPatchVersion }})</a-radio>
+              <a-radio value="minor">次版本 (v{{ publishForm.currentVersion }} → v{{ nextMinorVersion }})</a-radio>
+              <a-radio value="major">主版本 (v{{ publishForm.currentVersion }} → v{{ nextMajorVersion }})</a-radio>
+            </a-radio-group>
+          </a-space>
+        </template>
+        <a-input v-else v-model:value="publishForm.name" placeholder="给你的应用起个名字" />
       </a-form-item>
+      
       <a-form-item label="应用描述" required>
         <a-textarea 
           v-model:value="publishForm.description" 
@@ -147,6 +168,15 @@
           placeholder="描述一下你的应用是做什么的"
         />
       </a-form-item>
+      
+      <a-form-item label="更新内容" v-if="isUpdate">
+        <a-textarea 
+          v-model:value="publishForm.updateContent" 
+          :rows="3" 
+          placeholder="描述本次更新内容"
+        />
+      </a-form-item>
+      
       <a-form-item label="标签">
         <a-select
           v-model:value="publishForm.tags"
@@ -155,11 +185,47 @@
           :tokenSeparators="[',']"
         />
       </a-form-item>
+      
       <a-form-item label="开源设置">
         <a-switch v-model:checked="publishForm.isOpenSource" />
         <span style="margin-left: 10px">{{ publishForm.isOpenSource ? '开源（允许查看代码和使用模板）' : '闭源（仅允许预览和运行）' }}</span>
       </a-form-item>
     </a-form>
+  </a-modal>
+
+  <!-- 版本历史弹窗 -->
+  <a-modal
+    v-model:visible="versionModalVisible"
+    title="版本历史"
+    :footer="null"
+    width="700px"
+  >
+    <a-timeline v-if="versionHistory.length > 0">
+      <a-timeline-item
+        v-for="(version, index) in versionHistory"
+        :key="version.id"
+        :color="index === 0 ? 'green' : 'gray'"
+      >
+        <template #dot>
+          <TagOutlined v-if="index === 0" style="font-size: 16px" />
+          <ClockCircleOutlined v-else style="font-size: 16px" />
+        </template>
+        <div class="version-item">
+          <div class="version-header">
+            <span class="version-tag">v{{ version.version }}</span>
+            <span class="version-time">{{ version.create_time }}</span>
+          </div>
+          <div class="version-desc">{{ version.description || '暂无更新说明' }}</div>
+          <div class="version-actions" v-if="index > 0">
+            <a-button type="link" size="small" @click="handleRollback(version)">
+              <UndoOutlined />
+              回滚到此版本
+            </a-button>
+          </div>
+        </div>
+      </a-timeline-item>
+    </a-timeline>
+    <a-empty v-else description="暂无版本历史" />
   </a-modal>
 
   <!-- 重命名项目弹窗 -->
@@ -177,8 +243,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import { 
   UserOutlined, 
@@ -191,14 +257,17 @@ import {
   CloudDownloadOutlined,
   EyeOutlined,
   LikeOutlined,
-  FontSizeOutlined
+  FontSizeOutlined,
+  HistoryOutlined,
+  TagOutlined,
+  ClockCircleOutlined,
+  UndoOutlined
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useProjectStore } from '@/stores/project'
-import { getProjectList, saveProject, publishApp, unpublishApp as apiUnpublishApp, getMyMarketApps, deleteProject, renameProject } from '@/api'
+import { getProjectList, saveProject, publishApp, unpublishApp as apiUnpublishApp, getMyMarketApps, deleteProject, renameProject, getPublishedAppByProject, getAppVersions, rollbackApp } from '@/api'
 
 const router = useRouter()
-const route = useRoute()
 const userStore = useUserStore()
 const projectStore = useProjectStore()
 
@@ -208,42 +277,75 @@ const publishedApps = ref<any[]>([])
 const loading = ref(false)
 const publishModalVisible = ref(false)
 const publishing = ref(false)
+const isUpdate = ref(false)
 const selectedProject = ref<any>(null)
 const renameModalVisible = ref(false)
 const renaming = ref(false)
 const renameForm = ref({ id: 0, name: '' })
+const versionModalVisible = ref(false)
+const versionHistory = ref<any[]>([])
+const selectedApp = ref<any>(null)
 
 const publishForm = ref({
   name: '',
   description: '',
   tags: [] as string[],
-  isOpenSource: true
+  isOpenSource: true,
+  appId: 0,
+  currentVersion: '1.0.0',
+  versionType: 'patch',
+  updateContent: '',
+  content: {}
 })
 
-// 跳转到首页
+const parseVersion = (version: string) => {
+  const parts = version.split('.').map((p: string) => parseInt(p.replace(/[^0-9]/g, '')) || 0)
+  return { major: parts[0] || 0, minor: parts[1] || 0, patch: parts[2] || 0 }
+}
+
+const nextPatchVersion = computed(() => {
+  const v = parseVersion(publishForm.value.currentVersion)
+  return `${v.major}.${v.minor}.${v.patch + 1}`
+})
+
+const nextMinorVersion = computed(() => {
+  const v = parseVersion(publishForm.value.currentVersion)
+  return `${v.major}.${v.minor + 1}.0`
+})
+
+const nextMajorVersion = computed(() => {
+  const v = parseVersion(publishForm.value.currentVersion)
+  return `${v.major + 1}.0.0`
+})
+
 const goHome = () => {
   router.push('/project/new')
 }
 
-// 跳转到市场
 const goMarket = () => {
   router.push('/market')
 }
 
-// 退出登录
 const logout = () => {
   userStore.logout()
   router.push('/login')
   message.success('已退出登录')
 }
 
-// 加载项目列表
 const loadProjects = async () => {
   loading.value = true
   try {
     const res: any = await getProjectList(userStore.currentUser?.id || 0)
     if (res.code === 200) {
       projects.value = res.data || []
+      // 检查每个项目是否已发布
+      for (const project of projects.value) {
+        const appRes: any = await getPublishedAppByProject(project.id)
+        if (appRes.code === 200 && appRes.data) {
+          project.publishedAppId = appRes.data.id
+          project.publishedVersion = appRes.data.version
+        }
+      }
     } else {
       message.error(res.message || '加载项目列表失败')
     }
@@ -254,7 +356,6 @@ const loadProjects = async () => {
   }
 }
 
-// 加载已发布应用
 const loadPublishedApps = async () => {
   loading.value = true
   try {
@@ -271,16 +372,13 @@ const loadPublishedApps = async () => {
   }
 }
 
-// 编辑项目
 const editProject = (project: any) => {
-  // 设置项目上下文为来自我的应用
   projectStore.setCurrentProjectId(project.id)
   projectStore.setFromMyApps(true)
   projectStore.setProjectName(project.name)
   router.push(`/project/${project.id}`)
 }
 
-// 删除项目
 const handleDeleteProject = (id: number) => {
   Modal.confirm({
     title: '确认删除',
@@ -303,13 +401,11 @@ const handleDeleteProject = (id: number) => {
   })
 }
 
-// 打开重命名弹窗
 const openRenameModal = (project: any) => {
   renameForm.value = { id: project.id, name: project.name }
   renameModalVisible.value = true
 }
 
-// 执行重命名
 const handleRename = async () => {
   if (!renameForm.value.name.trim()) {
     message.error('请输入项目名称')
@@ -332,21 +428,47 @@ const handleRename = async () => {
   }
 }
 
-// 发布项目
-const publishProject = (project: any) => {
+const handlePublish = async (project: any) => {
   selectedProject.value = project
-  publishForm.value = {
-    name: project.name,
-    description: project.description || '',
-    tags: [],
-    isOpenSource: true
+  
+  // 检查是否已发布
+  const appRes: any = await getPublishedAppByProject(project.id)
+  
+  if (appRes.code === 200 && appRes.data) {
+    // 已发布，显示更新界面
+    isUpdate.value = true
+    publishForm.value = {
+      name: appRes.data.name,
+      description: appRes.data.description || '',
+      tags: appRes.data.tags || [],
+      isOpenSource: appRes.data.is_open_source === 1,
+      appId: appRes.data.id,
+      currentVersion: appRes.data.version,
+      versionType: 'patch',
+      updateContent: '',
+      content: project.content || {}
+    }
+  } else {
+    // 未发布，显示新发布界面
+    isUpdate.value = false
+    publishForm.value = {
+      name: project.name,
+      description: project.description || '',
+      tags: [],
+      isOpenSource: true,
+      appId: 0,
+      currentVersion: '1.0.0',
+      versionType: 'patch',
+      updateContent: '',
+      content: project.content || {}
+    }
   }
+  
   publishModalVisible.value = true
 }
 
-// 执行发布
-const handlePublish = async () => {
-  if (!publishForm.value.name.trim()) {
+const handlePublishSubmit = async () => {
+  if (!isUpdate.value && !publishForm.value.name.trim()) {
     message.error('请输入应用名称')
     return
   }
@@ -354,13 +476,18 @@ const handlePublish = async () => {
     message.error('请输入应用描述')
     return
   }
+  if (isUpdate.value && !publishForm.value.updateContent.trim()) {
+    message.error('请输入更新内容')
+    return
+  }
   
   publishing.value = true
   let hideLoading: (() => void) | null = null
   
   try {
-    // 先保存项目
-    hideLoading = message.loading('正在保存并发布...', 0)
+    hideLoading = message.loading(isUpdate.value ? '正在更新...' : '正在保存并发布...', 0)
+    
+    // 保存项目
     await saveProject({
       id: selectedProject.value.id,
       name: publishForm.value.name,
@@ -369,37 +496,42 @@ const handlePublish = async () => {
       content: selectedProject.value.content || {}
     })
     
-    // 然后发布应用
+    // 发布/更新应用
     const res: any = await publishApp({
       projectId: selectedProject.value.id,
+      appId: isUpdate.value ? publishForm.value.appId : undefined,
       name: publishForm.value.name,
       description: publishForm.value.description,
       tags: publishForm.value.tags,
       authorId: userStore.currentUser?.id,
       authorName: userStore.currentUser?.username,
-      isOpenSource: publishForm.value.isOpenSource
+      isOpenSource: publishForm.value.isOpenSource,
+      updateContent: isUpdate.value ? publishForm.value.updateContent : undefined,
+      versionType: isUpdate.value ? publishForm.value.versionType : undefined,
+      content: selectedProject.value.content || {}
     })
+    
     if (hideLoading) hideLoading()
     
     if (res.code === 200) {
-      message.success('应用发布成功！')
+      message.success(res.data.message || (isUpdate.value ? '应用更新成功！' : '应用发布成功！'))
       publishModalVisible.value = false
-      publishForm.value = { name: '', description: '', tags: [], isOpenSource: true }
+      publishForm.value = { name: '', description: '', tags: [], isOpenSource: true, appId: 0, currentVersion: '1.0.0', versionType: 'patch', updateContent: '', content: {} }
       selectedProject.value = null
+      isUpdate.value = false
       loadProjects()
       loadPublishedApps()
     } else {
-      message.error(res.message || '发布失败')
+      message.error(res.message || (isUpdate.value ? '更新失败' : '发布失败'))
     }
   } catch (err: any) {
     if (hideLoading) hideLoading()
-    message.error('发布失败: ' + (err.message || '未知错误'))
+    message.error((isUpdate.value ? '更新失败: ' : '发布失败: ') + (err.message || '未知错误'))
   } finally {
     publishing.value = false
   }
 }
 
-// 下架应用
 const handleUnpublishApp = (id: number) => {
   Modal.confirm({
     title: '确认下架',
@@ -412,6 +544,7 @@ const handleUnpublishApp = (id: number) => {
         if (res.code === 200) {
           message.success('应用已下架')
           loadPublishedApps()
+          loadProjects()
         } else {
           message.error(res.message || '下架失败')
         }
@@ -422,12 +555,57 @@ const handleUnpublishApp = (id: number) => {
   })
 }
 
-// 查看应用
+const openVersionHistory = async (app: any) => {
+  selectedApp.value = app
+  versionModalVisible.value = true
+  loading.value = true
+  
+  try {
+    const res: any = await getAppVersions(app.id)
+    if (res.code === 200) {
+      versionHistory.value = res.data || []
+    } else {
+      message.error(res.message || '获取版本历史失败')
+    }
+  } catch (error: any) {
+    message.error('获取版本历史失败: ' + (error.message || '未知错误'))
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleRollback = (version: any) => {
+  Modal.confirm({
+    title: '确认回滚',
+    content: `确定要回滚到版本 v${version.version} 吗？当前版本内容会被保存为新版本。`,
+    okText: '确认回滚',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        const res: any = await rollbackApp(selectedApp.value.id, version.id)
+        if (res.code === 200) {
+          message.success('回滚成功')
+          loadPublishedApps()
+          loadProjects()
+          // 刷新版本历史
+          const historyRes: any = await getAppVersions(selectedApp.value.id)
+          if (historyRes.code === 200) {
+            versionHistory.value = historyRes.data || []
+          }
+        } else {
+          message.error(res.message || '回滚失败')
+        }
+      } catch (error: any) {
+        message.error('回滚失败: ' + (error.message || '未知错误'))
+      }
+    }
+  })
+}
+
 const viewApp = (id: number) => {
   router.push(`/market/app/${id}`)
 }
 
-// 切换标签页
 const handleTabChange = (key: string) => {
   if (key === 'projects') {
     loadProjects()
@@ -515,17 +693,77 @@ onMounted(() => {
 .project-meta, .app-meta {
   color: #999;
   font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
 .app-stats {
-  margin-bottom: 8px;
   font-size: 14px;
   color: #666;
+  display: flex;
+  gap: 12px;
+}
+
+.published-btn {
+  color: #52c41a !important;
 }
 
 :deep(.ant-card-body) {
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+.version-info {
+  margin-bottom: 12px;
+}
+
+.current-version {
+  color: #1890ff;
+  font-weight: 500;
+}
+
+.version-item {
+  background: #f5f5f5;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.version-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.version-tag {
+  background: #1890ff;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.version-time {
+  color: #999;
+  font-size: 12px;
+}
+
+.version-desc {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.version-actions {
+  margin-top: 8px;
 }
 </style>

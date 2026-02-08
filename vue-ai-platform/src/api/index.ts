@@ -55,7 +55,8 @@ export const getMarketAppDetail = (id: number) => {
 }
 
 export const publishApp = (data: {
-  projectId: number
+  projectId?: number
+  appId?: number
   name: string
   description: string
   tags?: string[]
@@ -64,8 +65,22 @@ export const publishApp = (data: {
   authorId?: number
   authorName?: string
   isOpenSource?: boolean
+  updateContent?: string
+  versionType?: string
 }) => {
   return request.post<ApiResponse>('/api/market/publish', data)
+}
+
+export const getAppVersions = (appId: number) => {
+  return request.get<ApiResponse>(`/api/market/apps/${appId}/versions`)
+}
+
+export const rollbackApp = (appId: number, versionId: number) => {
+  return request.post<ApiResponse>(`/api/market/apps/${appId}/rollback/${versionId}`, {})
+}
+
+export const getPublishedAppByProject = (projectId: number) => {
+  return request.get<ApiResponse>(`/api/market/project/${projectId}/published`)
 }
 
 export const unpublishApp = (appId: number) => {

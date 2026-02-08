@@ -30,7 +30,7 @@ public class MarketController {
         try {
             StringBuilder sql = new StringBuilder(
                 "SELECT id, project_id, name, description, tags, thumbnail, " +
-                "author_id, author_name, author_avatar, likes, views, publish_time, is_open_source " +
+                "author_id, author_name, author_avatar, likes, views, publish_time, is_open_source, version " +
                 "FROM magic_sys_market_app WHERE status = 1"
             );
             List<Object> params = new ArrayList<>();
@@ -50,7 +50,7 @@ public class MarketController {
             
             // 获取总数
             String countSql = sql.toString().replace(
-                "SELECT id, project_id, name, description, tags, thumbnail, author_id, author_name, author_avatar, likes, views, publish_time, is_open_source",
+                "SELECT id, project_id, name, description, tags, thumbnail, author_id, author_name, author_avatar, likes, views, publish_time, is_open_source, version",
                 "SELECT COUNT(*)"
             );
             Integer total = jdbcTemplate.queryForObject(countSql, Integer.class, params.toArray());
@@ -132,7 +132,7 @@ public class MarketController {
     }
 
     /**
-     * 发布应用到市场
+     * 发布或更新应用到市场
      */
     @PostMapping("/publish")
     public Map<String, Object> publishApp(@RequestBody Map<String, Object> body) {
@@ -140,11 +140,15 @@ public class MarketController {
         try {
             Integer projectId = body.get("projectId") != null ? 
                 Integer.parseInt(body.get("projectId").toString()) : null;
+            Integer appId = body.get("appId") != null ? 
+                Integer.parseInt(body.get("appId").toString()) : null;
             String name = (String) body.get("name");
             String description = (String) body.get("description");
             String content = objectMapper.writeValueAsString(body.get("content"));
+            String updateContent = (String) body.get("updateContent");
+            String versionType = body.get("versionType") != null ? (String) body.get("versionType") : "patch";
             
-            // 获取作者信息（从请求头或session中获取，这里简化处理）
+            // 获取作者信息
             Integer authorId = body.get("authorId") != null ? 
                 Integer.parseInt(body.get("authorId").toString()) : 1;
             String authorName = (String) body.get("authorName");
@@ -161,20 +165,219 @@ public class MarketController {
             Integer isOpenSource = body.get("isOpenSource") != null ? 
                 (Boolean.TRUE.equals(body.get("isOpenSource")) ? 1 : 0) : 1;
             
-            jdbcTemplate.update(
-                "INSERT INTO magic_sys_market_app (project_id, name, description, tags, content, author_id, author_name, is_open_source) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                projectId, name, description, tags, content, authorId, authorName, isOpenSource
+            if (appId != null) {
+                // 更新现有应用
+                Map<String, Object> existingApp = jdbcTemplate.queryForMap(
+                    "SELECT * FROM magic_sys_market_app WHERE id = ?", appId);
+                
+                // 保存当前版本到历史记录
+                jdbcTemplate.update(
+                    "INSERT INTO magic_sys_market_app_version (app_id, version, version_code, content, description, author_id, author_name) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    appId, 
+                    existingApp.get("version"),
+                    existingApp.get("version_code"),
+                    existingApp.get("content"),
+                    updateContent,
+                    existingApp.get("author_id"),
+                    existingApp.get("author_name")
+                );
+                
+                // 计算新版本号
+                String currentVersion = (String) existingApp.get("version");
+                int currentCode = existingApp.get("version_code") != null ? 
+                    ((Number) existingApp.get("version_code")).intValue() : 1;
+                String newVersion = incrementVersion(currentVersion, versionType);
+                
+                // 更新应用
+                jdbcTemplate.update(
+                    "UPDATE magic_sys_market_app SET name = ?, description = ?, tags = ?, content = ?, " +
+                    "is_open_source = ?, version = ?, version_code = ?, update_content = ?, publish_time = CURRENT_TIMESTAMP " +
+                    "WHERE id = ?",
+                    name, description, tags, content, isOpenSource, newVersion, currentCode + 1, 
+                    updateContent, appId
+                );
+                
+                result.put("code", 200);
+                Map<String, Object> data = new HashMap<>();
+                data.put("success", true);
+                data.put("appId", appId);
+                data.put("version", newVersion);
+                data.put("message", "应用更新成功！新版本: " + newVersion);
+                result.put("data", data);
+            } else {
+                // 新发布
+                jdbcTemplate.update(
+                    "INSERT INTO magic_sys_market_app (project_id, name, description, tags, content, author_id, author_name, is_open_source, version, version_code) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, '1.0.0', 1)",
+                    projectId, name, description, tags, content, authorId, authorName, isOpenSource
+                );
+                
+                Integer newAppId = jdbcTemplate.queryForObject("SELECT last_insert_rowid()", Integer.class);
+                
+                // 保存初始版本
+                jdbcTemplate.update(
+                    "INSERT INTO magic_sys_market_app_version (app_id, version, version_code, content, description, author_id, author_name) " +
+                    "VALUES (?, '1.0.0', 1, ?, ?, ?, ?)",
+                    newAppId, content, "首次发布", authorId, authorName
+                );
+                
+                result.put("code", 200);
+                Map<String, Object> data = new HashMap<>();
+                data.put("success", true);
+                data.put("appId", newAppId);
+                data.put("version", "1.0.0");
+                data.put("message", "发布成功");
+                result.put("data", data);
+            }
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /**
+     * 获取应用版本历史
+     */
+    @GetMapping("/apps/{id}/versions")
+    public Map<String, Object> getAppVersions(@PathVariable Integer id) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            List<Map<String, Object>> versions = jdbcTemplate.queryForList(
+                "SELECT * FROM magic_sys_market_app_version WHERE app_id = ? ORDER BY version_code DESC",
+                id
             );
             
-            Integer appId = jdbcTemplate.queryForObject("SELECT last_insert_rowid()", Integer.class);
+            result.put("code", 200);
+            result.put("data", versions);
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /**
+     * 回滚到指定版本
+     */
+    @PostMapping("/apps/{appId}/rollback/{versionId}")
+    public Map<String, Object> rollbackApp(
+            @PathVariable Integer appId, 
+            @PathVariable Integer versionId,
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            // 获取要回滚的版本
+            Map<String, Object> targetVersion = jdbcTemplate.queryForMap(
+                "SELECT * FROM magic_sys_market_app_version WHERE app_id = ? AND id = ?",
+                appId, versionId
+            );
+            
+            // 获取当前应用信息
+            Map<String, Object> currentApp = jdbcTemplate.queryForMap(
+                "SELECT * FROM magic_sys_market_app WHERE id = ?", appId);
+            
+            // 保存当前版本到历史
+            jdbcTemplate.update(
+                "INSERT INTO magic_sys_market_app_version (app_id, version, version_code, content, description, author_id, author_name) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                appId, 
+                currentApp.get("version"),
+                currentApp.get("version_code"),
+                currentApp.get("content"),
+                "回滚前备份",
+                currentApp.get("author_id"),
+                currentApp.get("author_name")
+            );
+            
+            // 回滚到目标版本
+            String rollbackVersion = "v" + ((Number) targetVersion.get("version_code")).intValue() + ".0";
+            jdbcTemplate.update(
+                "UPDATE magic_sys_market_app SET content = ?, version = ?, version_code = ?, " +
+                "update_content = ?, publish_time = CURRENT_TIMESTAMP WHERE id = ?",
+                targetVersion.get("content"),
+                rollbackVersion,
+                ((Number) targetVersion.get("version_code")).intValue() + 1,
+                "回滚到版本 " + targetVersion.get("version"),
+                appId
+            );
             
             result.put("code", 200);
             Map<String, Object> data = new HashMap<>();
             data.put("success", true);
-            data.put("appId", appId);
-            data.put("message", "发布成功");
+            data.put("message", "已回滚到版本 " + targetVersion.get("version"));
             result.put("data", data);
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /**
+     * 获取用户已发布的应用列表（带版本信息）
+     */
+    @GetMapping("/my-apps")
+    public Map<String, Object> getMyApps(@RequestParam Integer userId) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            List<Map<String, Object>> apps = jdbcTemplate.queryForList(
+                "SELECT id, project_id, name, description, tags, likes, views, publish_time, version, version_code, update_content " +
+                "FROM magic_sys_market_app WHERE author_id = ? AND status = 1 ORDER BY publish_time DESC",
+                userId
+            );
+            
+            // 解析 tags
+            for (Map<String, Object> app : apps) {
+                String tagsStr = (String) app.get("tags");
+                if (tagsStr != null && !tagsStr.isEmpty()) {
+                    app.put("tags", tagsStr.split(","));
+                } else {
+                    app.put("tags", new String[0]);
+                }
+            }
+            
+            result.put("code", 200);
+            result.put("data", apps);
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /**
+     * 获取项目对应的已发布应用信息
+     */
+    @GetMapping("/project/{projectId}/published")
+    public Map<String, Object> getPublishedAppByProject(@PathVariable Integer projectId) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            List<Map<String, Object>> apps = jdbcTemplate.queryForList(
+                "SELECT id, name, description, tags, likes, views, publish_time, version, version_code " +
+                "FROM magic_sys_market_app WHERE project_id = ? AND status = 1 ORDER BY publish_time DESC LIMIT 1",
+                projectId
+            );
+            
+            if (apps.isEmpty()) {
+                result.put("code", 404);
+                result.put("message", "该项目尚未发布到市场");
+            } else {
+                Map<String, Object> app = apps.get(0);
+                String tagsStr = (String) app.get("tags");
+                if (tagsStr != null && !tagsStr.isEmpty()) {
+                    app.put("tags", tagsStr.split(","));
+                } else {
+                    app.put("tags", new String[0]);
+                }
+                result.put("code", 200);
+                result.put("data", app);
+            }
         } catch (Exception e) {
             result.put("code", 500);
             result.put("message", e.getMessage());
@@ -213,14 +416,12 @@ public class MarketController {
             Integer userId = body.get("userId") != null ? 
                 Integer.parseInt(body.get("userId").toString()) : 1;
             
-            // 检查是否已点赞
             Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM magic_sys_market_app_like WHERE app_id = ? AND user_id = ?",
                 Integer.class, id, userId
             );
             
             if (count != null && count > 0) {
-                // 取消点赞
                 jdbcTemplate.update(
                     "DELETE FROM magic_sys_market_app_like WHERE app_id = ? AND user_id = ?",
                     id, userId
@@ -233,7 +434,6 @@ public class MarketController {
                 likeData.put("liked", false);
                 result.put("data", likeData);
             } else {
-                // 添加点赞
                 jdbcTemplate.update(
                     "INSERT INTO magic_sys_market_app_like (app_id, user_id) VALUES (?, ?)",
                     id, userId
@@ -247,7 +447,6 @@ public class MarketController {
                 result.put("data", likeData);
             }
             
-            // 获取最新点赞数
             Integer likes = jdbcTemplate.queryForObject(
                 "SELECT likes FROM magic_sys_market_app WHERE id = ?",
                 Integer.class, id
@@ -268,35 +467,40 @@ public class MarketController {
     }
 
     /**
-     * 获取用户的应用列表（已发布）
+     * 版本号自增
      */
-    @GetMapping("/my-apps")
-    public Map<String, Object> getMyApps(@RequestParam Integer userId) {
-        Map<String, Object> result = new HashMap<>();
-        try {
-            List<Map<String, Object>> apps = jdbcTemplate.queryForList(
-                "SELECT id, project_id, name, description, tags, likes, views, publish_time " +
-                "FROM magic_sys_market_app WHERE author_id = ? AND status = 1 ORDER BY publish_time DESC",
-                userId
-            );
-            
-            // 解析 tags
-            for (Map<String, Object> app : apps) {
-                String tagsStr = (String) app.get("tags");
-                if (tagsStr != null && !tagsStr.isEmpty()) {
-                    app.put("tags", tagsStr.split(","));
-                } else {
-                    app.put("tags", new String[0]);
-                }
-            }
-            
-            result.put("code", 200);
-            result.put("data", apps);
-        } catch (Exception e) {
-            result.put("code", 500);
-            result.put("message", e.getMessage());
-            e.printStackTrace();
+    private String incrementVersion(String currentVersion, String type) {
+        if (currentVersion == null || currentVersion.isEmpty()) {
+            return "1.0.0";
         }
-        return result;
+        
+        String[] parts = currentVersion.split("\\.");
+        int major = 0, minor = 0, patch = 0;
+        
+        try {
+            if (parts.length >= 1) major = Integer.parseInt(parts[0]);
+            if (parts.length >= 2) minor = Integer.parseInt(parts[1]);
+            if (parts.length >= 3) patch = Integer.parseInt(parts[2].replaceAll("[^0-9]", ""));
+        } catch (NumberFormatException e) {
+            patch = 1;
+        }
+        
+        switch (type) {
+            case "major":
+                major++;
+                minor = 0;
+                patch = 0;
+                break;
+            case "minor":
+                minor++;
+                patch = 0;
+                break;
+            case "patch":
+            default:
+                patch++;
+                break;
+        }
+        
+        return major + "." + minor + "." + patch;
     }
 }

@@ -59,14 +59,45 @@ vue-ai/
 ├── vue-ai-platform/        # Frontend application
 │   ├── src/
 │   │   ├── views/          # Page components
+│   │   │   ├── EditorLayout.vue
+│   │   │   ├── MarketLaunchpad.vue    # App market with window system
+│   │   │   ├── Launchpad.vue          # Fullscreen launchpad
+│   │   │   ├── MyApps.vue
+│   │   │   ├── AIConfig.vue
+│   │   │   └── Login.vue
 │   │   ├── components/     # Reusable components
 │   │   ├── stores/         # Pinia stores
-│   │   └── router/         # Vue Router config
+│   │   ├── router/         # Vue Router config
+│   │   ├── api/            # API definitions
+│   │   └── assets/         # Static assets
 │   └── vite.config.ts      # Vite configuration
 │
 └── vue-ai-server/          # Backend application
     └── src/main/java/      # Spring Boot application
 ```
+
+## New Features (v0.5.0)
+
+### MarketLaunchpad.vue
+- App market with icon grid display
+- Click-to-launch application
+- Window management system (drag, minimize, maximize, close)
+- Mac-style Dock bar at bottom
+- Search and category filtering
+
+### Launchpad.vue
+- Fullscreen launchpad overlay
+- App icon grid
+- Same window management features as MarketLaunchpad
+
+### Window Management Features
+- Multiple windows support
+- Drag to move windows
+- Minimize to dock bar
+- Maximize/fullscreen toggle
+- Close windows
+- Z-index management (click to bring to front)
+- ESC key to minimize active window
 
 ## Common Development Tasks
 

@@ -8,3 +8,7 @@ spring:
     url: jdbc:sqlite:./vue-ai.db
     username:
     password:
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql

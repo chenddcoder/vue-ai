@@ -121,22 +121,43 @@
   <!-- 发布应用弹窗 -->
   <a-modal
     v-model:visible="publishModalVisible"
-    title="发布应用到市场"
+    :title="isPublished ? '更新应用' : '发布应用到市场'"
     @ok="handlePublish"
     :confirmLoading="publishing"
-    okText="发布"
+    :okText="isPublished ? '更新' : '发布'"
   >
     <a-form :model="publishForm" layout="vertical">
-      <a-form-item label="应用名称" required>
-        <a-input v-model:value="publishForm.name" placeholder="给你的应用起个名字" />
-      </a-form-item>
-      <a-form-item label="应用描述" required>
-        <a-textarea 
-          v-model:value="publishForm.description" 
-          :rows="4" 
-          placeholder="描述一下你的应用是做什么的"
-        />
-      </a-form-item>
+      <template v-if="isPublished">
+        <a-form-item label="版本号">
+          <div class="version-info">
+            <span class="current-version">当前版本: v{{ publishForm.currentVersion }}</span>
+          </div>
+          <a-radio-group v-model:value="publishForm.versionType">
+            <a-radio value="patch">补丁版 (v{{ publishForm.currentVersion }} → v{{ nextPatchVersion }})</a-radio>
+            <a-radio value="minor">次版本 (v{{ publishForm.currentVersion }} → v{{ nextMinorVersion }})</a-radio>
+            <a-radio value="major">主版本 (v{{ publishForm.currentVersion }} → v{{ nextMajorVersion }})</a-radio>
+          </a-radio-group>
+        </a-form-item>
+        <a-form-item label="更新内容" required>
+          <a-textarea 
+            v-model:value="publishForm.updateContent" 
+            :rows="3" 
+            placeholder="描述本次更新内容"
+          />
+        </a-form-item>
+      </template>
+      <template v-else>
+        <a-form-item label="应用名称" required>
+          <a-input v-model:value="publishForm.name" placeholder="给你的应用起个名字" />
+        </a-form-item>
+        <a-form-item label="应用描述" required>
+          <a-textarea 
+            v-model:value="publishForm.description" 
+            :rows="4" 
+            placeholder="描述一下你的应用是做什么的"
+          />
+        </a-form-item>
+      </template>
       <a-form-item label="标签">
         <a-select
           v-model:value="publishForm.tags"
@@ -199,7 +220,7 @@ import Preview from '@/components/preview/Preview.vue'
 import AIAssistant from '@/components/editor/AIAssistant.vue'
 import { useProjectStore } from '@/stores/project'
 import { useUserStore } from '@/stores/user'
-import { saveProject, publishApp, getProject, updateUserAvatar } from '@/api'
+import { saveProject, publishApp, getProject, updateUserAvatar, getPublishedAppByProject } from '@/api'
 
 const router = useRouter()
 const route = useRoute()
@@ -215,12 +236,38 @@ const saveForm = ref({
 const publishing = ref(false)
 const publishModalVisible = ref(false)
 const loading = ref(false)
+const isPublished = ref(false)
 
 const publishForm = ref({
   name: '',
   description: '',
   tags: [] as string[],
-  isOpenSource: true
+  isOpenSource: true,
+  appId: 0,
+  currentVersion: '1.0.0',
+  versionType: 'patch',
+  updateContent: '',
+  content: {}
+})
+
+const parseVersion = (version: string) => {
+  const parts = version.split('.').map(p => parseInt(p.replace(/[^0-9]/g, '')) || 0)
+  return { major: parts[0] || 0, minor: parts[1] || 0, patch: parts[2] || 0 }
+}
+
+const nextPatchVersion = computed(() => {
+  const v = parseVersion(publishForm.value.currentVersion)
+  return `${v.major}.${v.minor}.${v.patch + 1}`
+})
+
+const nextMinorVersion = computed(() => {
+  const v = parseVersion(publishForm.value.currentVersion)
+  return `${v.major}.${v.minor + 1}.0`
+})
+
+const nextMajorVersion = computed(() => {
+  const v = parseVersion(publishForm.value.currentVersion)
+  return `${v.major + 1}.0.0`
 })
 
 const avatarModalVisible = ref(false)
@@ -437,22 +484,70 @@ const handleSaveConfirm = async () => {
 }
 
 // 显示发布弹窗
-const showPublishModal = () => {
+const showPublishModal = async () => {
   if (userStore.isGuest) {
     message.warning('请先登录后再发布应用')
     return
+  }
+  
+  // 检查是否已发布
+  const projectId = projectStore.fromMyApps && projectStore.currentProjectId 
+    ? projectStore.currentProjectId 
+    : (route.params.id === 'new' ? undefined : Number(route.params.id))
+  
+  if (projectId) {
+    try {
+      const appRes: any = await getPublishedAppByProject(projectId)
+      if (appRes.code === 200 && appRes.data) {
+        // 已发布，显示更新界面
+        isPublished.value = true
+        publishForm.value = {
+          name: appRes.data.name,
+          description: appRes.data.description || '',
+          tags: appRes.data.tags || [],
+          isOpenSource: appRes.data.is_open_source === 1,
+          appId: appRes.data.id,
+          currentVersion: appRes.data.version,
+          versionType: 'patch',
+          updateContent: '',
+          content: projectStore.files
+        }
+        publishModalVisible.value = true
+        return
+      }
+    } catch (e) {
+      console.error('检查发布状态失败:', e)
+    }
+  }
+  
+  // 未发布，显示新发布界面
+  isPublished.value = false
+  publishForm.value = {
+    name: projectStore.projectName || '',
+    description: '',
+    tags: [],
+    isOpenSource: true,
+    appId: 0,
+    currentVersion: '1.0.0',
+    versionType: 'patch',
+    updateContent: '',
+    content: projectStore.files
   }
   publishModalVisible.value = true
 }
 
 // 发布应用
 const handlePublish = async () => {
-  if (!publishForm.value.name.trim()) {
+  if (!isPublished.value && !publishForm.value.name.trim()) {
     message.error('请输入应用名称')
     return
   }
   if (!publishForm.value.description.trim()) {
     message.error('请输入应用描述')
+    return
+  }
+  if (isPublished.value && !publishForm.value.updateContent.trim()) {
+    message.error('请输入更新内容')
     return
   }
   
@@ -461,13 +556,11 @@ const handlePublish = async () => {
   let hidePublishLoading: (() => void) | null = null
   
   try {
-    // 确定项目ID（来自我的应用或新建）
     const projectId = projectStore.fromMyApps && projectStore.currentProjectId 
       ? projectStore.currentProjectId 
       : (route.params.id === 'new' ? undefined : Number(route.params.id))
     
-    // 先保存项目
-    hideSaveLoading = message.loading('正在保存项目...', 0)
+    hideSaveLoading = message.loading(isPublished.value ? '正在更新...' : '正在保存项目...', 0)
     const saveRes: any = await saveProject({
       id: projectId,
       name: publishForm.value.name,
@@ -477,38 +570,37 @@ const handlePublish = async () => {
     })
     if (hideSaveLoading) hideSaveLoading()
     
-    // 获取保存后的项目ID
     const savedProjectId = saveRes.data?.id || projectId
     
-    // 然后发布应用
-    hidePublishLoading = message.loading('正在发布应用...', 0)
+    hidePublishLoading = message.loading(isPublished.value ? '正在更新...' : '正在发布应用...', 0)
     const publishRes: any = await publishApp({
       projectId: savedProjectId,
+      appId: isPublished.value ? publishForm.value.appId : undefined,
       name: publishForm.value.name,
       description: publishForm.value.description,
       tags: publishForm.value.tags,
       content: projectStore.files,
       authorId: userStore.currentUser?.id,
       authorName: userStore.currentUser?.username,
-      isOpenSource: publishForm.value.isOpenSource
+      isOpenSource: publishForm.value.isOpenSource,
+      updateContent: isPublished.value ? publishForm.value.updateContent : undefined,
+      versionType: isPublished.value ? publishForm.value.versionType : undefined
     })
     if (hidePublishLoading) hidePublishLoading()
     
     if (publishRes.code === 200) {
-      message.success('应用发布成功！')
+      message.success(publishRes.data.message || (isPublished.value ? '应用更新成功！' : '应用发布成功！'))
       publishModalVisible.value = false
-      // 清空表单和项目上下文
-      publishForm.value = { name: '', description: '', tags: [], isOpenSource: true }
+      publishForm.value = { name: '', description: '', tags: [], isOpenSource: true, appId: 0, currentVersion: '1.0.0', versionType: 'patch', updateContent: '', content: {} }
       projectStore.clearProjectContext()
-      // 跳转到应用市场
       router.push('/market')
     } else {
-      message.error(publishRes.message || '发布失败')
+      message.error(publishRes.message || (isPublished.value ? '更新失败' : '发布失败'))
     }
   } catch (err: any) {
     if (hideSaveLoading) hideSaveLoading()
     if (hidePublishLoading) hidePublishLoading()
-    message.error('发布失败: ' + (err.message || '未知错误'))
+    message.error((isPublished.value ? '更新失败: ' : '发布失败: ') + (err.message || '未知错误'))
   } finally {
     publishing.value = false
   }
@@ -637,5 +729,14 @@ const handleAvatarSave = async () => {
   display: flex;
   flex-direction: column;
   overflow: auto;
+}
+
+.version-info {
+  margin-bottom: 12px;
+}
+
+.current-version {
+  color: #1890ff;
+  font-weight: 500;
 }
 </style>
