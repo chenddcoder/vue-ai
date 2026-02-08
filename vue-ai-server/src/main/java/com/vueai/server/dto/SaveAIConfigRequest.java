@@ -7,7 +7,7 @@ public class SaveAIConfigRequest {
     private Integer userId;
     private String providerId;
     private String modelId;
-    private Map<String, Object> config;
+    private Object config;
     private Boolean isActive;
 
     public Integer getId() {
@@ -42,11 +42,11 @@ public class SaveAIConfigRequest {
         this.modelId = modelId;
     }
 
-    public Map<String, Object> getConfig() {
+    public Object getConfig() {
         return config;
     }
 
-    public void setConfig(Map<String, Object> config) {
+    public void setConfig(Object config) {
         this.config = config;
     }
 

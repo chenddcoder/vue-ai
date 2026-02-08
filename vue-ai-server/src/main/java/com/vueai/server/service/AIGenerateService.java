@@ -58,6 +58,11 @@ public class AIGenerateService {
         logger.info("Provider: {}, Model: {}", provider, model);
         logger.info("Prompt: {}", prompt);
         
+        List<Map<String, Object>> messages = buildMessages(prompt);
+        return generateWithMessages(provider, model, config, messages);
+    }
+
+    public Map<String, Object> generateWithMessages(String provider, String model, Map<String, Object> config, List<Map<String, Object>> messages) throws Exception {
         if (config.containsKey("modelName") && config.get("modelName") != null) {
             model = config.get("modelName").toString();
         }
@@ -68,24 +73,24 @@ public class AIGenerateService {
             providerId.contains("zhipu") || 
             providerId.equals("glm") ||
             (config.get("baseUrl") != null && config.get("baseUrl").toString().toLowerCase().contains("bigmodel.cn"))) {
-            return generateWithZhipuAI(config, prompt, model);
+            return generateWithZhipuAI(config, messages, model);
         }
         
         switch (providerId) {
             case "openai":
-                return generateWithOpenAI(config, prompt, model);
+                return generateWithOpenAI(config, messages, model);
             case "anthropic":
-                return generateWithAnthropic(config, prompt, model);
+                return generateWithAnthropic(config, messages, model);
             case "qwen":
-                return generateWithQwen(config, prompt, model);
+                return generateWithQwen(config, messages, model);
             case "custom":
-                return generateWithCustomAPI(config, prompt, model);
+                return generateWithCustomAPI(config, messages, model);
             default:
-                return generateWithCustomAPI(config, prompt, model);
+                return generateWithCustomAPI(config, messages, model);
         }
     }
 
-    private Map<String, Object> generateWithZhipuAI(Map<String, Object> config, String prompt, String model) throws Exception {
+    private Map<String, Object> generateWithZhipuAI(Map<String, Object> config, List<Map<String, Object>> messages, String model) throws Exception {
         String apiKey = (String) config.get("apiKey");
         String baseUrl = (String) config.getOrDefault("baseUrl", "https://open.bigmodel.cn/api/paas/v4");
         
@@ -102,7 +107,7 @@ public class AIGenerateService {
 
         Map<String, Object> body = new HashMap<>();
         body.put("model", actualModel);
-        body.put("messages", buildMessages(prompt));
+        body.put("messages", messages);
         body.put("max_tokens", 4096);
         body.put("temperature", 0.7);
 
@@ -115,7 +120,7 @@ public class AIGenerateService {
         return parseZhipuAIResponse(response.getBody());
     }
 
-    private Map<String, Object> generateWithOpenAI(Map<String, Object> config, String prompt, String model) throws Exception {
+    private Map<String, Object> generateWithOpenAI(Map<String, Object> config, List<Map<String, Object>> messages, String model) throws Exception {
         String apiKey = (String) config.get("apiKey");
         String baseUrl = (String) config.getOrDefault("baseUrl", "https://api.openai.com/v1");
         String url = baseUrl + "/chat/completions";
@@ -128,7 +133,7 @@ public class AIGenerateService {
 
         Map<String, Object> body = new HashMap<>();
         body.put("model", model);
-        body.put("messages", buildMessages(prompt));
+        body.put("messages", messages);
         body.put("max_tokens", 4096);
         body.put("temperature", 0.7);
 
@@ -141,7 +146,7 @@ public class AIGenerateService {
         return parseOpenAIResponse(response.getBody());
     }
 
-    private Map<String, Object> generateWithAnthropic(Map<String, Object> config, String prompt, String model) throws Exception {
+    private Map<String, Object> generateWithAnthropic(Map<String, Object> config, List<Map<String, Object>> messages, String model) throws Exception {
         String apiKey = (String) config.get("apiKey");
         String url = "https://api.anthropic.com/v1/messages";
 
@@ -153,7 +158,7 @@ public class AIGenerateService {
         Map<String, Object> body = new HashMap<>();
         body.put("model", model);
         body.put("max_tokens", 4096);
-        body.put("messages", buildMessages(prompt));
+        body.put("messages", messages);
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
 
@@ -164,7 +169,7 @@ public class AIGenerateService {
         return parseAnthropicResponse(response.getBody());
     }
 
-    private Map<String, Object> generateWithQwen(Map<String, Object> config, String prompt, String model) throws Exception {
+    private Map<String, Object> generateWithQwen(Map<String, Object> config, List<Map<String, Object>> messages, String model) throws Exception {
         String apiKey = (String) config.get("apiKey");
         String url = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
 
@@ -174,7 +179,7 @@ public class AIGenerateService {
 
         Map<String, Object> body = new HashMap<>();
         body.put("model", model);
-        body.put("messages", buildMessages(prompt));
+        body.put("messages", messages);
         body.put("max_tokens", 4096);
         body.put("temperature", 0.7);
 
@@ -187,7 +192,7 @@ public class AIGenerateService {
         return parseOpenAIResponse(response.getBody());
     }
 
-    private Map<String, Object> generateWithCustomAPI(Map<String, Object> config, String prompt, String model) throws Exception {
+    private Map<String, Object> generateWithCustomAPI(Map<String, Object> config, List<Map<String, Object>> messages, String model) throws Exception {
         String baseUrl = (String) config.get("baseUrl");
         String apiKey = (String) config.get("apiKey");
 
@@ -203,7 +208,7 @@ public class AIGenerateService {
 
         Map<String, Object> body = new HashMap<>();
         body.put("model", model);
-        body.put("messages", buildMessages(prompt));
+        body.put("messages", messages);
         body.put("max_tokens", 4096);
         body.put("temperature", 0.7);
 

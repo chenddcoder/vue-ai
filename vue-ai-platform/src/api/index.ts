@@ -81,6 +81,11 @@ export const generateCode = (data: { prompt: string; provider?: string; model?: 
   return request.post<ApiResponse>('/magic/ai/generate', data)
 }
 
+// 智能模块代码生成
+export const generateModuleCode = (data: { projectId?: number | null; requirement: string; userId: number; files?: Record<string, string> }) => {
+  return request.post<ApiResponse>('/magic/ai/generate-module', data)
+}
+
 // AI配置管理
 export const getAIConfigs = (userId: number) => {
   return request.get<ApiResponse>('/magic/ai/configs', { params: { userId } })

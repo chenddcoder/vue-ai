@@ -20,8 +20,20 @@ const handleMessage = (event: MessageEvent) => {
   } else if (data.type === 'getFile') {
     // Sandbox asks for file content
     // Remove leading slash if present
-    const filename = data.filename.startsWith('/') ? data.filename.slice(1) : data.filename
-    const content = projectStore.files[filename] ?? null
+    let filename = data.filename.startsWith('/') ? data.filename.slice(1) : data.filename
+    
+    // Try exact match first
+    let content = projectStore.files[filename]
+    
+    // If not found, try adding src/ prefix (for default project structure)
+    if (content === undefined && !filename.startsWith('src/')) {
+      const srcPath = `src/${filename}`
+      if (projectStore.files[srcPath] !== undefined) {
+        content = projectStore.files[srcPath]
+      }
+    }
+
+    content = content ?? null
     
     if (iframe.value && iframe.value.contentWindow) {
       iframe.value.contentWindow.postMessage({

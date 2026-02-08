@@ -6,6 +6,7 @@ import com.vueai.server.dto.SaveAIConfigRequest;
 import com.vueai.server.model.AIConfig;
 import com.vueai.server.service.AIConfigService;
 import com.vueai.server.service.AIGenerateService;
+import com.vueai.server.service.SmartCodeGeneratorService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
@@ -22,6 +23,9 @@ public class AIController {
 
     @Autowired
     private AIGenerateService aiGenerateService;
+
+    @Autowired
+    private SmartCodeGeneratorService smartCodeGeneratorService;
 
     // AI代码生成
     @PostMapping("/generate")
@@ -42,6 +46,28 @@ public class AIController {
             Map<String, Object> error = new HashMap<>();
             error.put("code", 0);
             error.put("message", "AI生成失败: " + e.getMessage());
+            return error;
+        }
+    }
+
+    // 智能模块生成
+    @PostMapping("/generate-module")
+    public Map<String, Object> generateModule(@RequestBody Map<String, Object> body) {
+        try {
+            Integer projectId = body.get("projectId") != null ? Integer.parseInt(body.get("projectId").toString()) : null;
+            String requirement = (String) body.get("requirement");
+            Integer userId = Integer.parseInt(body.get("userId").toString());
+            @SuppressWarnings("unchecked")
+            Map<String, String> files = (Map<String, String>) body.get("files");
+            
+            Map<String, Object> result = smartCodeGeneratorService.generateModule(projectId, requirement, userId, files);
+            result.put("code", 1);
+            return result;
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("code", 0);
+            error.put("message", "生成失败: " + e.getMessage());
+            e.printStackTrace();
             return error;
         }
     }
@@ -68,8 +94,14 @@ public class AIController {
     public Map<String, Object> saveAIConfig(@RequestBody SaveAIConfigRequest request) {
         try {
             // Convert config map to JSON string
-            ObjectMapper mapper = new ObjectMapper();
-            String configJson = mapper.writeValueAsString(request.getConfig());
+            String configJson;
+            Object configObj = request.getConfig();
+            if (configObj instanceof String) {
+                configJson = (String) configObj;
+            } else {
+                ObjectMapper mapper = new ObjectMapper();
+                configJson = mapper.writeValueAsString(configObj);
+            }
 
             AIConfig aiConfig = new AIConfig();
             aiConfig.setId(request.getId());
@@ -132,8 +164,8 @@ public class AIController {
     @PostMapping("/configs/test")
     public Map<String, Object> testAIConfig(@RequestBody Map<String, Object> body) {
         try {
-            @SuppressWarnings("unchecked")
-            AIConfig aiConfig = (AIConfig) body.get("config");
+            ObjectMapper mapper = new ObjectMapper();
+            AIConfig aiConfig = mapper.convertValue(body.get("config"), AIConfig.class);
             String testPrompt = (String) body.getOrDefault("testPrompt", "Hello, write a simple Vue component");
             
             // TODO: 实际测试配置是否有效

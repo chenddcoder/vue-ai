@@ -309,6 +309,27 @@ const previewHtml = computed(() => {
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <script src="https://unpkg.com/vue@3/dist/vue.global.js"><\/script>
+      <script src="https://unpkg.com/vue-router@4/dist/vue-router.global.js"><\/script>
+      <script src="https://unpkg.com/dayjs/dayjs.min.js"><\/script>
+      <script src="https://unpkg.com/dayjs/plugin/customParseFormat.js"><\/script>
+      <script src="https://unpkg.com/dayjs/plugin/weekday.js"><\/script>
+      <script src="https://unpkg.com/dayjs/plugin/localeData.js"><\/script>
+      <script src="https://unpkg.com/dayjs/plugin/weekOfYear.js"><\/script>
+      <script src="https://unpkg.com/dayjs/plugin/weekYear.js"><\/script>
+      <script src="https://unpkg.com/dayjs/plugin/advancedFormat.js"><\/script>
+      <script src="https://unpkg.com/dayjs/plugin/quarterOfYear.js"><\/script>
+      <script>
+        dayjs.extend(window.dayjs_plugin_customParseFormat);
+        dayjs.extend(window.dayjs_plugin_weekday);
+        dayjs.extend(window.dayjs_plugin_localeData);
+        dayjs.extend(window.dayjs_plugin_weekOfYear);
+        dayjs.extend(window.dayjs_plugin_weekYear);
+        dayjs.extend(window.dayjs_plugin_advancedFormat);
+        dayjs.extend(window.dayjs_plugin_quarterOfYear);
+      <\/script>
+      <script src="https://unpkg.com/ant-design-vue@4/dist/antd.min.js"><\/script>
+      <link rel="stylesheet" href="https://unpkg.com/ant-design-vue@4/dist/reset.css">
+      <script src="https://unpkg.com/pinia@2/dist/pinia.global.js"><\/script>
       <script src="https://cdn.jsdelivr.net/npm/vue3-sfc-loader/dist/vue3-sfc-loader.js"><\/script>
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -322,7 +343,10 @@ const previewHtml = computed(() => {
         
         const options = {
           moduleCache: {
-            vue: Vue
+            vue: window.Vue,
+            'vue-router': window.VueRouter,
+            'pinia': window.Pinia,
+            'ant-design-vue': window.antd
           },
           async getFile(url) {
             // 简单的路径处理
@@ -356,9 +380,19 @@ const previewHtml = computed(() => {
         
         const { loadModule } = window['vue3-sfc-loader'];
         
-        const app = Vue.createApp(Vue.defineAsyncComponent(() => loadModule('/App.vue', options)));
-        
-        app.mount('#app');
+        loadModule('/App.vue', options).then(App => {
+          const app = window.Vue.createApp(App);
+          if (window.antd) app.use(window.antd);
+          if (window.Pinia) app.use(window.Pinia.createPinia());
+          
+          const router = window.VueRouter.createRouter({
+            history: window.VueRouter.createWebHashHistory(),
+            routes: []
+          });
+          app.use(router);
+
+          app.mount('#app');
+        });
       <\/script>
     </body>
     </html>

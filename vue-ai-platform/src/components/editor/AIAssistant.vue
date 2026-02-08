@@ -160,7 +160,7 @@ import { SettingOutlined, EditOutlined, AppstoreOutlined } from '@ant-design/ico
 import { useAIStore } from '@/stores/ai'
 import { useUserStore } from '@/stores/user'
 import { useProjectStore } from '@/stores/project'
-import { generateCode } from '@/api'
+import { generateCode, generateModuleCode } from '@/api'
 import AIConfig from '@/views/AIConfig.vue'
 import AIConfigForm from '@/components/AIConfigForm.vue'
 
@@ -211,20 +211,16 @@ const sendMessage = async () => {
 
   try {
     // 构建请求参数
-    const activeConfig = aiStore.activeConfig!
     const request = {
-      prompt: userPrompt,
-      provider: currentProvider.value!.id,
-      model: currentModel.value!.id,
-      config: {
-        ...activeConfig.config,
-        modelName: currentModel.value!.id
-      },
-      ...options.value
+      projectId: projectStore.currentProjectId || null,
+      requirement: userPrompt,
+      userId: userStore.userInfo?.id || 0,
+      files: projectStore.files
     }
 
-    loadingText.value = '正在生成代码，请稍候...'
-    const res: any = await generateCode(request)
+    loadingText.value = '正在分析项目上下文并生成代码...'
+    // 调用智能代码生成模块
+    const res: any = await generateModuleCode(request)
     loadingText.value = '正在处理响应...'
     
     // 检查响应状态
@@ -232,21 +228,28 @@ const sendMessage = async () => {
       throw new Error(res.message || 'AI生成失败')
     }
     
-    // 直接获取AI返回的完整代码
-    const content = res.data?.content || res.content || ''
+    // 获取生成的文件列表
+    const files = res.files || []
     
-    if (!content) {
-      throw new Error('AI返回空内容')
+    if (!files || files.length === 0) {
+      throw new Error('AI未返回任何文件')
     }
     
-    // 创建文件
-    const filename = `Generated-${Date.now()}.vue`
-    projectStore.updateFile(filename, content)
-    projectStore.setActiveFile(filename)
+    // 更新项目文件
+    let firstFile = ''
+    for (const file of files) {
+      projectStore.updateFile(file.path, file.content)
+      if (!firstFile) firstFile = file.path
+    }
+    
+    // 选中第一个生成的文件
+    if (firstFile) {
+      projectStore.setActiveFile(firstFile)
+    }
     
     messages.value.push({ 
       role: 'assistant', 
-      content: `已创建文件 ${filename}`
+      content: `已成功生成 ${files.length} 个文件：\n${files.map((f: any) => f.path).join('\n')}`
     })
     loadingText.value = ''
   } catch (err: any) {
