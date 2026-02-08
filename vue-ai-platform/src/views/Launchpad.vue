@@ -190,7 +190,16 @@ const generateAppHtml = (content: any, name: string) => {
     return '<div style="display: flex; justify-content: center; align-items: center; height: 100vh; color: #999;"><span>加载中...</span></div>'
   }
 
-  const filesJson = JSON.stringify(content)
+  let appContent = content
+  if (typeof content === 'string') {
+    try {
+      appContent = JSON.parse(content)
+    } catch (e) {
+      console.error('Failed to parse app content:', e)
+    }
+  }
+
+  const filesJson = JSON.stringify(appContent)
   const filesEncoded = encodeURIComponent(filesJson)
 
   return `
@@ -222,6 +231,7 @@ const generateAppHtml = (content: any, name: string) => {
       <script src="https://unpkg.com/ant-design-vue@4/dist/antd.min.js"><\/script>
       <link rel="stylesheet" href="https://unpkg.com/ant-design-vue@4/dist/reset.css">
       <script src="https://unpkg.com/pinia@2/dist/pinia.global.js"><\/script>
+      <script src="https://unpkg.com/file-saver/dist/FileSaver.min.js"><\/script>
       <script src="https://cdn.jsdelivr.net/npm/vue3-sfc-loader/dist/vue3-sfc-loader.js"><\/script>
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -279,7 +289,8 @@ const generateAppHtml = (content: any, name: string) => {
             vue: window.Vue,
             'vue-router': window.VueRouter,
             'pinia': window.Pinia,
-            'ant-design-vue': window.antd
+            'ant-design-vue': window.antd,
+            'file-saver': { saveAs: window.saveAs }
           },
           async getFile(url) {
             const content = getFileContent(url);

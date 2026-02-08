@@ -19,6 +19,7 @@ This is a Vue AI Platform with a frontend (Vue 3 + TypeScript) and backend (Spri
 
 ### Backend (vue-ai-server)
 - Spring Boot 2.7.18
+- JDK 1.8
 - SQLite (H2-compatible)
 - Hutool utilities
 
@@ -47,9 +48,20 @@ pnpm preview
 ### Backend (vue-ai-server)
 
 ```bash
+# Set JDK 1.8 (ensure JAVA_HOME points to JDK 1.8)
+export JAVA_HOME=/path/to/jdk1.8
+
 # Run Spring Boot application
 cd vue-ai-server
 mvn spring-boot:run
+
+# Compile the project
+cd vue-ai-server
+mvn compile
+
+# Package the application
+cd vue-ai-server
+mvn package
 ```
 
 ## Project Structure

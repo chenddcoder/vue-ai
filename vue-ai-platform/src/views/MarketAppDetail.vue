@@ -205,8 +205,18 @@ const loadData = async () => {
 }
 
 const generatePreviewHtml = (content: any) => {
-  if (!content) return '<div style="padding: 40px; text-align: center; color: #999;">暂无内容</div>'
-  const filesJson = JSON.stringify(content)
+  let appContent = content
+  if (typeof content === 'string') {
+    try {
+      appContent = JSON.parse(content)
+    } catch (e) {
+      console.error('Failed to parse app content:', e)
+    }
+  }
+  
+  if (!appContent) return '<div style="padding: 40px; text-align: center; color: #999;">暂无内容</div>'
+  const filesJson = JSON.stringify(appContent)
+  const filesEncoded = encodeURIComponent(filesJson)
   return `
     <!DOCTYPE html>
     <html>
@@ -217,23 +227,43 @@ const generatePreviewHtml = (content: any) => {
       <script src="https://unpkg.com/vue@3/dist/vue.global.js"><\/script>
       <script src="https://unpkg.com/vue-router@4/dist/vue-router.global.js"><\/script>
       <script src="https://unpkg.com/dayjs/dayjs.min.js"><\/script>
+      <script src="https://unpkg.com/dayjs/plugin/customParseFormat.js"><\/script>
+      <script src="https://unpkg.com/dayjs/plugin/weekday.js"><\/script>
+      <script src="https://unpkg.com/dayjs/plugin/localeData.js"><\/script>
+      <script src="https://unpkg.com/dayjs/plugin/weekOfYear.js"><\/script>
+      <script src="https://unpkg.com/dayjs/plugin/weekYear.js"><\/script>
+      <script src="https://unpkg.com/dayjs/plugin/advancedFormat.js"><\/script>
+      <script src="https://unpkg.com/dayjs/plugin/quarterOfYear.js"><\/script>
+      <script>
+        dayjs.extend(window.dayjs_plugin_customParseFormat);
+        dayjs.extend(window.dayjs_plugin_weekday);
+        dayjs.extend(window.dayjs_plugin_localeData);
+        dayjs.extend(window.dayjs_plugin_weekOfYear);
+        dayjs.extend(window.dayjs_plugin_weekYear);
+        dayjs.extend(window.dayjs_plugin_advancedFormat);
+        dayjs.extend(window.dayjs_plugin_quarterOfYear);
+      <\/script>
       <script src="https://unpkg.com/ant-design-vue@4/dist/antd.min.js"><\/script>
       <link rel="stylesheet" href="https://unpkg.com/ant-design-vue@4/dist/reset.css">
       <script src="https://unpkg.com/pinia@2/dist/pinia.global.js"><\/script>
+      <script src="https://unpkg.com/file-saver/dist/FileSaver.min.js"><\/script>
       <script src="https://cdn.jsdelivr.net/npm/vue3-sfc-loader/dist/vue3-sfc-loader.js"><\/script>
       <style>body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }</style>
     </head>
     <body>
       <div id="app"></div>
       <script>
-        const files = JSON.parse(decodeURIComponent("${encodeURIComponent(filesJson)}"));
+        const files = JSON.parse(decodeURIComponent("${filesEncoded}"));
         const { loadModule } = window['vue3-sfc-loader'];
         const options = {
           moduleCache: {
-            vue: window.Vue, 'vue-router': window.VueRouter, 'pinia': window.Pinia, 'ant-design-vue': window.antd
+            vue: window.Vue, 'vue-router': window.VueRouter, 'pinia': window.Pinia, 'ant-design-vue': window.antd, 'file-saver': { saveAs: window.saveAs }
           },
           async getFile(url) {
-            const key = Object.keys(files).find(k => k.endsWith(url.replace(/^\.?\//, '')));
+            let path = url;
+            if (path.startsWith('/')) path = path.slice(1);
+            if (path.startsWith('./')) path = path.slice(2);
+            const key = Object.keys(files).find(k => k.endsWith(path));
             return key ? files[key] : null;
           },
           addStyle(textContent) {

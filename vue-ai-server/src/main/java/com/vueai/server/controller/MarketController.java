@@ -627,13 +627,19 @@ public class MarketController {
                     "DELETE FROM magic_sys_market_app_favorite WHERE app_id = ? AND user_id = ?",
                     id, userId
                 );
-                result.put("data", Map.of("favorited", false, "message", "取消收藏成功"));
+                Map<String, Object> data = new HashMap<>();
+                data.put("favorited", false);
+                data.put("message", "取消收藏成功");
+                result.put("data", data);
             } else {
                 jdbcTemplate.update(
                     "INSERT INTO magic_sys_market_app_favorite (app_id, user_id) VALUES (?, ?)",
                     id, userId
                 );
-                result.put("data", Map.of("favorited", true, "message", "收藏成功"));
+                Map<String, Object> data = new HashMap<>();
+                data.put("favorited", true);
+                data.put("message", "收藏成功");
+                result.put("data", data);
             }
             
             result.put("code", 200);
@@ -683,7 +689,7 @@ public class MarketController {
             );
             
             result.put("code", 200);
-            result.put("data", Map.of("favorited", count != null && count > 0));
+            result.put("data", Collections.singletonMap("favorited", count != null && count > 0));
         } catch (Exception e) {
             result.put("code", 500);
             result.put("message", e.getMessage());
@@ -718,13 +724,19 @@ public class MarketController {
                     "DELETE FROM magic_sys_user_follow WHERE follower_id = ? AND followee_id = ?",
                     followerId, userId
                 );
-                result.put("data", Map.of("following", false, "message", "取消关注成功"));
+                Map<String, Object> data = new HashMap<>();
+                data.put("following", false);
+                data.put("message", "取消关注成功");
+                result.put("data", data);
             } else {
                 jdbcTemplate.update(
                     "INSERT INTO magic_sys_user_follow (follower_id, followee_id) VALUES (?, ?)",
                     followerId, userId
                 );
-                result.put("data", Map.of("following", true, "message", "关注成功"));
+                Map<String, Object> data = new HashMap<>();
+                data.put("following", true);
+                data.put("message", "关注成功");
+                result.put("data", data);
             }
             
             result.put("code", 200);
@@ -799,7 +811,7 @@ public class MarketController {
             );
             
             result.put("code", 200);
-            result.put("data", Map.of("following", count != null && count > 0));
+            result.put("data", Collections.singletonMap("following", count != null && count > 0));
         } catch (Exception e) {
             result.put("code", 500);
             result.put("message", e.getMessage());
