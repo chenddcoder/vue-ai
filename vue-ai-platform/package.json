@@ -13,6 +13,7 @@
     "@vue/compiler-sfc": "^3.5.13",
     "ant-design-vue": "^4.2.6",
     "axios": "^1.7.9",
+    "jszip": "^3.10.1",
     "monaco-editor": "^0.52.2",
     "pinia": "^2.3.0",
     "vue": "^3.5.13",

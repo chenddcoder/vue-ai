@@ -30,6 +30,9 @@
         <a-tooltip title="刷新">
           <span class="action-btn"><ReloadOutlined /></span>
         </a-tooltip>
+        <a-tooltip title="导出项目">
+          <span class="action-btn" @click="handleExport"><DownloadOutlined /></span>
+        </a-tooltip>
       </div>
     </div>
     <div class="file-tree-content">
@@ -89,6 +92,7 @@
 import { computed } from 'vue'
 import { useProjectStore } from '@/stores/project'
 import { storeToRefs } from 'pinia'
+import JSZip from 'jszip'
 import { 
   PlusOutlined, 
   FolderOutlined, 
@@ -99,6 +103,7 @@ import {
   DeleteOutlined,
   FileAddOutlined,
   ReloadOutlined,
+  DownloadOutlined,
   DownOutlined,
   RightOutlined
 } from '@ant-design/icons-vue'
@@ -393,6 +398,34 @@ const createFileInFolder = (parentPath: string) => {
   
   store.updateFile(filePath, getFileTemplate(key))
   store.setActiveFile(filePath)
+}
+
+const handleExport = async () => {
+  const zip = new JSZip()
+  
+  // Add files to zip
+  Object.entries(files.value).forEach(([path, content]) => {
+    // Remove leading slash if present (though usually keys don't have it in our store, but good to be safe)
+    // Actually our store keys are like "src/App.vue" or "App.vue"
+    const cleanPath = path.startsWith('/') ? path.slice(1) : path
+    zip.file(cleanPath, content)
+  })
+  
+  try {
+    const blob = await zip.generateAsync({ type: 'blob' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${store.projectName || 'project'}.zip`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    message.success('导出成功')
+  } catch (error) {
+    console.error('Export failed:', error)
+    message.error('导出失败')
+  }
 }
 
 const onDrop = (info: any) => {
