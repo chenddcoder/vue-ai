@@ -158,3 +158,37 @@ mvn compile
 - `vue-ai-platform/tsconfig.json`: TypeScript configuration
 - `vue-ai-server/pom.xml`: Maven dependencies
 - `vue-ai-server/src/main/resources/application.yml`: Spring Boot configuration
+
+## Development Workflow
+
+### After Completing Development
+
+After completing any feature implementation, always:
+
+1. **Update README.md**
+   - Document new features in the changelog
+   - Update version number and feature status tables
+   - Add new API endpoints to documentation
+   - Update database schema if applicable
+
+2. **Plan Next Version Iteration**
+   - Review completed features and mark in changelog
+   - Identify remaining features from current version plan
+   - Prioritize features for next version (P1, P2, etc.)
+   - Update version roadmap with new features and improvements
+
+3. **Verify Code Quality**
+   - Run frontend TypeScript check: `pnpm vue-tsc -b`
+   - Run backend compilation: `mvn compile`
+   - Fix any errors before committing
+
+### Version Planning
+
+- **P1 (High Priority)**: Core features that must be completed
+- **P2 (Medium Priority)**: Important enhancements
+- **P3 (Low Priority)**: Nice-to-have improvements
+
+When planning versions:
+- Group related features together
+- Consider user impact and dependencies
+- Set realistic goals for each iteration

@@ -22,7 +22,7 @@
 
 ---
 
-## 当前版本: v0.6.0
+## 当前版本: v0.7.0
 
 ### 已完成功能
 
@@ -158,7 +158,68 @@
 
 ---
 
-## v0.6.0 更新内容
+## v0.7.0 更新内容
+
+### 社区功能增强
+
+#### 新增功能
+1. **应用评论系统**
+   - 用户可以对发布的应用发表评论
+   - 支持星级评分（1-5星）
+   - 支持回复评论（嵌套评论）
+   - 评论统计和平均评分显示
+
+2. **应用收藏**
+   - 一键收藏喜欢的应用
+   - 独立收藏页面（我的收藏）
+   - 收藏状态实时同步
+   - 快速取消收藏
+
+3. **用户关注**
+   - 关注/取消关注其他开发者
+   - 查看用户粉丝列表
+   - 查看用户关注列表
+   - 个人主页展示关注关系
+
+4. **应用详情页面**
+   - 独立应用详情页路由
+   - 应用预览窗口
+   - 评论区集成
+   - 收藏和点赞快捷操作
+
+5. **个人中心**
+   - 用户主页（/profile/:userId）
+   - 查看用户发布的应用
+   - 查看粉丝和关注列表
+   - 一键关注功能
+
+#### 新增API接口
+- `GET /api/market/apps/{id}/comments` - 获取应用评论
+- `POST /api/market/apps/{id}/comments` - 添加评论
+- `DELETE /api/market/comments/{id}` - 删除评论
+- `POST /api/market/apps/{id}/favorite` - 收藏/取消收藏
+- `GET /api/market/favorites` - 获取收藏列表
+- `GET /api/market/apps/{id}/favorite/check` - 检查收藏状态
+- `POST /api/market/users/{id}/follow` - 关注/取消关注
+- `GET /api/market/users/{id}/followers` - 获取粉丝列表
+- `GET /api/market/users/{id}/following` - 获取关注列表
+- `GET /api/market/users/{id}/follow/check` - 检查关注状态
+- `GET /api/market/users/{id}/apps` - 获取用户发布的应用
+
+#### 新增页面和组件
+- `MyFavorites.vue` - 我的收藏页面
+- `MarketAppDetail.vue` - 应用详情页面
+- `UserProfile.vue` - 用户主页
+- `AppDetailModal.vue` - 应用详情弹窗
+
+#### 数据库变更
+- `magic_sys_market_app_comment` - 应用评论表
+- `magic_sys_market_app_favorite` - 应用收藏表
+- `magic_sys_user_follow` - 用户关注表
+
+---
+
+## v0.6.0 更新内容（历史版本）
 
 ### 应用版本管理系统
 
@@ -218,33 +279,27 @@
 
 ---
 
-## 下一步迭代规划 (v0.7.0)
+## 下一步迭代规划 (v0.8.0)
 
-### 1. 社区功能增强 (P1)
-- [ ] **应用评论**: 用户可以对发布的应用进行评论
-- [ ] **应用评分**: 支持星级评分系统
-- [ ] **应用收藏**: 用户收藏喜欢的应用到个人中心
-- [ ] **用户关注**: 关注其他开发者
-
-### 2. 应用详情增强 (P1)
+### 1. 应用详情增强 (P1)
 - [ ] **应用截图**: 支持上传多张截图展示
 - [ ] **应用视频**: 支持上传演示视频
 - [ ] **使用说明**: 详细的使用文档和帮助
 - [ ] **版本对比**: 查看不同版本之间的差异
 
-### 3. 用户体验优化 (P2)
+### 2. 用户体验优化 (P2)
 - [ ] **消息通知**: 系统通知和消息中心
 - [ ] **操作日志**: 用户操作历史记录
 - [ ] **首屏优化**: 加载性能优化
 - [ ] **深色模式**: 完整的深色主题支持
 
-### 4. 编辑器增强 (P2)
+### 3. 编辑器增强 (P2)
 - [ ] **代码补全**: 编辑器内智能代码补全
 - [ ] **代码解释**: 选中代码进行AI解释
 - [ ] **代码优化**: AI提供代码优化建议
 - [ ] **错误检测**: 实时语法错误检测
 
-### 5. 分享功能 (P2)
+### 4. 分享功能 (P2)
 - [ ] **生成海报**: 生成应用分享海报
 - [ ] **社交分享**: 一键分享到社交平台
 - [ ] **嵌入代码**: 生成可嵌入网页的代码
@@ -365,9 +420,10 @@ CREATE TABLE magic_sys_market_app_like (
 -- 应用收藏表
 CREATE TABLE magic_sys_market_app_favorite (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
     app_id INTEGER NOT NULL,
-    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    user_id INTEGER NOT NULL,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(app_id, user_id)
 );
 
 -- 应用评论表
@@ -375,9 +431,21 @@ CREATE TABLE magic_sys_market_app_comment (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     app_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
+    user_name VARCHAR(100),
+    user_avatar TEXT,
     content TEXT NOT NULL,
     rating INTEGER DEFAULT 5,
+    parent_id INTEGER DEFAULT 0,
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 用户关注表
+CREATE TABLE magic_sys_user_follow (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    follower_id INTEGER NOT NULL,
+    followee_id INTEGER NOT NULL,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(follower_id, followee_id)
 );
 
 -- 应用版本历史表
@@ -418,8 +486,16 @@ vue-ai/
 │   │   │   ├── MarketLaunchpad.vue
 │   │   │   ├── Launchpad.vue
 │   │   │   ├── MyApps.vue
+│   │   │   ├── MyFavorites.vue
+│   │   │   ├── MarketAppDetail.vue
+│   │   │   ├── UserProfile.vue
 │   │   │   ├── AIConfig.vue
 │   │   │   └── Login.vue
+│   │   ├── components/     # 公共组件
+│   │   │   ├── editor/     # 编辑器组件
+│   │   │   ├── preview/    # 预览组件
+│   │   │   └── community/  # 社区组件
+│   │   │       └── AppDetailModal.vue
 │   │   ├── App.vue
 │   │   └── main.ts
 │   ├── package.json
@@ -441,6 +517,15 @@ vue-ai/
 ---
 
 ## 版本历史
+
+### v0.7.0 - 社区功能增强
+**重大更新**
+- ✅ 应用评论系统（支持星级评分和回复）
+- ✅ 应用收藏功能
+- ✅ 用户关注系统
+- ✅ 独立应用详情页面
+- ✅ 用户个人主页
+- ✅ API接口和数据库表
 
 ### v0.6.0 - 应用版本管理系统
 **重大更新**
