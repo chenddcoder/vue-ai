@@ -59,7 +59,7 @@ WRANGLER_CMD="npx wrangler"
 
 # 交互式部署
 echo "正在启动部署..."
-$WRANGLER_CMD pages deploy dist --project-name=vue-ai-platform
+$WRANGLER_CMD pages deploy dist --project-name=vue-ai
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}=== 部署成功！ ===${NC}"
