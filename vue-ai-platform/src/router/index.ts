@@ -25,7 +25,7 @@ const router = createRouter({
     {
       path: '/market',
       name: 'market',
-      component: () => import('@/views/Market.vue'),
+      component: () => import('@/views/MarketLaunchpad.vue'),
       meta: { requiresAuth: false }
     },
     {

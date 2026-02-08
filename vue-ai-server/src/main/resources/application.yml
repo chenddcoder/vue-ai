@@ -5,6 +5,6 @@ server:
 spring:
   datasource:
     driver-class-name: org.sqlite.JDBC
-    url: jdbc:sqlite:/media/psf/WD/Users/chendd/Documents/self/Java/vue-ai/vue-ai-server/vue-ai.db
+    url: jdbc:sqlite:./vue-ai.db
     username:
     password:
