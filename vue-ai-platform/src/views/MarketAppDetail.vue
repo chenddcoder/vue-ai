@@ -386,7 +386,7 @@ const previewHtml = computed(() => {
           if (window.Pinia) app.use(window.Pinia.createPinia());
           
           const router = window.VueRouter.createRouter({
-            history: window.VueRouter.createWebHashHistory(),
+            history: window.VueRouter.createMemoryHistory(),
             routes: []
           });
           app.use(router);

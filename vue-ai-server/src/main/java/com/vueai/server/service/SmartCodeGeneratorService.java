@@ -137,7 +137,8 @@ public class SmartCodeGeneratorService {
             "  </file>\n" +
             "</response>\n" +
             "6. 不要返回任何Markdown代码块标记（如```xml），只返回XML内容。\n" +
-            "7. 确保生成的代码完整、可运行，包含所有必要的导入。";
+            "7. 确保生成的代码完整、可运行，包含所有必要的导入。\n" +
+            "8. 如果是简单工具或单页面应用，**不要**使用 vue-router，请直接在 App.vue 中引入并渲染主要组件（如 <JsonFormatter />）。只有在确实需要多页面导航时才使用路由，并且必须生成 router/index.ts 配置文件。";
             
         String userPrompt = "项目目录结构：\n" + structure + "\n\n" +
             "项目依赖(package.json)：\n" + dependencies + "\n\n" +

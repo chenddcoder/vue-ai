@@ -87,6 +87,21 @@
     </a-layout>
   </a-layout>
 
+  <!-- 保存项目弹窗 -->
+  <a-modal
+    v-model:visible="saveModalVisible"
+    title="保存项目"
+    @ok="handleSaveConfirm"
+    :confirmLoading="saving"
+    okText="确认保存"
+  >
+    <a-form :model="saveForm" layout="vertical">
+      <a-form-item label="项目名称" required>
+        <a-input v-model:value="saveForm.name" placeholder="请输入项目名称" @pressEnter="handleSaveConfirm" />
+      </a-form-item>
+    </a-form>
+  </a-modal>
+
   <!-- 发布应用弹窗 -->
   <a-modal
     v-model:visible="publishModalVisible"
@@ -151,6 +166,10 @@ const userStore = useUserStore()
 
 const showAI = ref(true)
 const saving = ref(false)
+const saveModalVisible = ref(false)
+const saveForm = ref({
+  name: ''
+})
 const publishing = ref(false)
 const publishModalVisible = ref(false)
 const loading = ref(false)
@@ -253,7 +272,7 @@ const logout = () => {
 }
 
 // 保存项目
-const handleSave = async () => {
+const executeSave = async () => {
   saving.value = true
   try {
     let projectId = route.params.id === 'new' ? undefined : Number(route.params.id)
@@ -262,23 +281,57 @@ const handleSave = async () => {
       projectId = projectStore.currentProjectId
     }
     
-    await saveProject({
+    const res: any = await saveProject({
       id: projectId,
       name: projectStore.projectName || '未命名项目',
       description: 'Vue AI Project',
       ownerId: userStore.currentUser?.id || 0,
       content: projectStore.files
     })
-    message.success('项目保存成功！')
     
-    if (!projectId && route.params.id === 'new') {
-      message.info('请刷新页面或重新打开项目以加载最新内容')
+    if (res.code === 200) {
+      message.success('项目保存成功！')
+      const savedProjectId = res.data?.id
+      
+      if (savedProjectId) {
+        projectStore.setCurrentProjectId(savedProjectId)
+        projectStore.setProjectName(res.data.name)
+        // If we were on 'new' route, replace with actual ID
+        if (route.params.id === 'new') {
+          router.replace(`/project/${savedProjectId}`)
+        }
+      }
+    } else {
+      message.error(res.message || '保存失败')
     }
   } catch (err: any) {
     message.error('保存失败: ' + err.message)
   } finally {
     saving.value = false
   }
+}
+
+const handleSave = async () => {
+  const isNewProject = route.params.id === 'new'
+  
+  if (isNewProject) {
+    saveForm.value.name = projectStore.projectName !== '未命名项目' ? projectStore.projectName : ''
+    saveModalVisible.value = true
+    return
+  }
+  
+  await executeSave()
+}
+
+const handleSaveConfirm = async () => {
+  if (!saveForm.value.name.trim()) {
+    message.error('请输入项目名称')
+    return
+  }
+  
+  projectStore.setProjectName(saveForm.value.name)
+  saveModalVisible.value = false
+  await executeSave()
 }
 
 // 显示发布弹窗
