@@ -54,11 +54,8 @@ echo -e "${GREEN}准备部署到 Cloudflare Pages...${NC}"
 echo "如果你是第一次运行，可能需要浏览器登录 Cloudflare 授权。"
 
 # 检查是否安装了 wrangler，如果没有则使用 npx
-if command -v wrangler &> /dev/null; then
-    WRANGLER_CMD="wrangler"
-else
-    WRANGLER_CMD="npx wrangler"
-fi
+WRANGLER_CMD="npx wrangler"
+
 
 # 交互式部署
 echo "正在启动部署..."
