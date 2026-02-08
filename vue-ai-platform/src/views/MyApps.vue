@@ -338,12 +338,17 @@ const loadProjects = async () => {
     const res: any = await getProjectList(userStore.currentUser?.id || 0)
     if (res.code === 200) {
       projects.value = res.data || []
-      // 检查每个项目是否已发布
+
       for (const project of projects.value) {
-        const appRes: any = await getPublishedAppByProject(project.id)
-        if (appRes.code === 200 && appRes.data) {
-          project.publishedAppId = appRes.data.id
-          project.publishedVersion = appRes.data.version
+        try {
+          const appRes: any = await getPublishedAppByProject(project.id)
+          if (appRes.code === 200 && appRes.data) {
+            project.publishedAppId = appRes.data.id
+            project.publishedVersion = appRes.data.version
+          }
+        } catch (e) {
+          project.publishedAppId = null
+          project.publishedVersion = null
         }
       }
     } else {

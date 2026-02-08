@@ -310,6 +310,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
   background: #fafafa;
   border-left: 1px solid #f0f0f0;
 }
@@ -322,6 +323,7 @@ onMounted(() => {
   padding: 12px 16px;
   background: #fff;
   border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
 }
 
 .current-model {
@@ -360,7 +362,9 @@ onMounted(() => {
 .chat-history {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px;
+  scroll-behavior: smooth;
 }
 
 .welcome-message {
@@ -447,7 +451,7 @@ onMounted(() => {
 
 .message-text {
   padding: 10px 14px;
-  max-width: 280px;
+  max-width: calc(100% - 40px);
   word-wrap: break-word;
   line-height: 1.4;
 }
@@ -464,6 +468,7 @@ onMounted(() => {
 .input-area {
   background: #fff;
   border-top: 1px solid #f0f0f0;
+  flex-shrink: 0;
 }
 
 .advanced-options {
@@ -476,7 +481,7 @@ onMounted(() => {
   padding: 12px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .input-actions {
@@ -484,6 +489,10 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
+}
+
+.input-actions .ant-btn {
+  flex-shrink: 0;
 }
 
 .loading-text {
@@ -494,6 +503,9 @@ onMounted(() => {
   color: #d48806;
   font-size: 13px;
   animation: pulse 2s infinite;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @keyframes pulse {

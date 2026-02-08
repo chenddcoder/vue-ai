@@ -21,10 +21,9 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   response => {
     const res = response.data
-    if (res.code !== 200 && res.code !== 1) { // 1 is for AI controller compatibility
-        // Handle error
-        console.error('API Error:', res.message)
-        return Promise.reject(new Error(res.message || 'Error'))
+    if (res.code !== 200 && res.code !== 1 && res.code !== 404) { // 1 is for AI controller compatibility, 404 is valid for "not found"
+      console.error('API Error:', res.message)
+      return Promise.reject(new Error(res.message || 'Error'))
     } else {
       return res
     }

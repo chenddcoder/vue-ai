@@ -31,9 +31,9 @@
             <ClockCircleOutlined style="color: #faad14; margin-right: 4px" />
             未保存
           </span>
-          <span v-else-if="projectStore.lastAutoSaveTime" class="save-status">
+          <span v-else class="save-status">
             <CheckCircleOutlined style="color: #52c41a; margin-right: 4px" />
-            已保存 {{ formatTime(projectStore.lastAutoSaveTime) }}
+            已保存
           </span>
           
           <a-button type="primary" @click="showPublishModal" :disabled="userStore.isGuest" danger>
@@ -275,59 +275,12 @@ const avatarUploading = ref(false)
 const avatarUrl = ref('')
 const previewAvatar = ref('')
 
-let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
-
 const formatTime = (date: Date) => {
   return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
-const triggerAutoSave = () => {
-  if (!projectStore.autoSaveEnabled || projectStore.isAutoSaving) return
-  
-  if (autoSaveTimer) {
-    clearTimeout(autoSaveTimer)
-  }
-  
-  autoSaveTimer = setTimeout(async () => {
-    if (!projectStore.hasUnsavedChanges()) return
-    
-    projectStore.isAutoSaving = true
-    try {
-      const projectId = route.params.id === 'new' ? undefined : Number(route.params.id)
-      if (!projectId && !projectStore.currentProjectId) {
-        projectStore.isAutoSaving = false
-        return
-      }
-      
-      const res: any = await saveProject({
-        id: projectStore.currentProjectId || projectId,
-        name: projectStore.projectName || '未命名项目',
-        description: 'Vue AI Project',
-        ownerId: userStore.currentUser?.id || 0,
-        content: projectStore.files
-      })
-      
-      if (res.code === 200) {
-        projectStore.lastAutoSaveTime = new Date()
-        const savedProjectId = res.data?.id
-        if (savedProjectId && !projectStore.currentProjectId) {
-          projectStore.setCurrentProjectId(savedProjectId)
-          projectStore.setProjectName(res.data.name)
-          if (route.params.id === 'new') {
-            router.replace(`/project/${savedProjectId}`)
-          }
-        }
-      }
-    } catch (err: any) {
-      console.error('Auto save failed:', err.message)
-    } finally {
-      projectStore.isAutoSaving = false
-    }
-  }, projectStore.autoSaveDelay)
-}
-
 watch(() => projectStore.files, () => {
-  triggerAutoSave()
+  // 自动保存已禁用
 }, { deep: true })
 
 const loadProject = async () => {
@@ -738,5 +691,14 @@ const handleAvatarSave = async () => {
 .current-version {
   color: #1890ff;
   font-weight: 500;
+}
+
+.save-status {
+  color: #ffffff;
+  font-size: 13px;
+  margin-left: 12px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
 }
 </style>
