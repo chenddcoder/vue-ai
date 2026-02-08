@@ -18,23 +18,10 @@ echo -e "${GREEN}=== 开始部署 Vue AI Platform 到 Cloudflare Pages ===${NC}"
 echo -e "${YELLOW}检查 API 配置...${NC}"
 cd vue-ai-platform
 
-if [ ! -f .env.production ]; then
-    echo -e "${YELLOW}警告: 未找到 .env.production 文件${NC}"
-    echo "正在创建 .env.production 模板..."
-    echo "VITE_API_BASE_URL=https://vue-ai.chenddcoder.cn" > .env.production
-    echo -e "${RED}请编辑 vue-ai-platform/.env.production 文件，填入你实际的后端 API 地址！${NC}"
-    echo -e "${RED}例如: VITE_API_BASE_URL=https://api.example.com${NC}"
-    read -p "修改完成后按回车继续..."
-else
-    echo -e "${GREEN}发现 .env.production 文件${NC}"
-    grep "VITE_API_BASE_URL" .env.production
-    echo "确认上述 API 地址正确吗？(y/n)"
-    read -r confirm
-    if [ "$confirm" != "y" ]; then
-        echo "请修改 .env.production 后重新运行脚本"
-        exit 1
-    fi
-fi
+echo "正在创建 .env.production 模板..."
+echo "VITE_API_BASE_URL=https://vue-ai.chenddcoder.cn" > .env.production
+echo "VITE_API_BASE_URL=https://vue-ai.chenddcoder.cn"
+
 
 # 2. 安装依赖
 echo -e "${GREEN}正在安装依赖...${NC}"
