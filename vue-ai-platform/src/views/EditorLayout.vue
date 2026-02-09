@@ -41,40 +41,7 @@
             发布
           </a-button>
           
-          <a-dropdown v-if="userStore.currentUser">
-            <a-button type="text" class="user-btn">
-              <a-avatar :src="userStore.currentUser.avatar" :size="24" style="margin-right: 8px">
-                <template #icon><UserOutlined /></template>
-              </a-avatar>
-              {{ userStore.currentUser.username }}
-              <span v-if="userStore.isGuest" class="guest-badge">游客</span>
-              <DownOutlined />
-            </a-button>
-            <template #overlay>
-              <a-menu>
-                <a-menu-item @click="showAvatarModal">
-                  <UserOutlined />
-                  更换头像
-                </a-menu-item>
-                <a-menu-divider v-if="!userStore.isGuest" />
-                <a-menu-item @click="goAIConfig" v-if="!userStore.isGuest">
-                  <RobotOutlined />
-                  AI配置
-                </a-menu-item>
-                <a-menu-item v-if="userStore.isGuest" @click="goLogin">
-                  <LoginOutlined />
-                  登录/注册
-                </a-menu-item>
-                <a-menu-divider v-if="userStore.isGuest" />
-                <a-menu-item @click="logout">
-                  <LogoutOutlined />
-                  退出
-                </a-menu-item>
-              </a-menu>
-            </template>
-          </a-dropdown>
-          
-          <a-button v-else type="primary" @click="goLogin">登录</a-button>
+          <UserAvatar />
         </a-space>
       </div>
     </a-layout-header>
@@ -172,30 +139,6 @@
       </a-form-item>
     </a-form>
   </a-modal>
-
-  <!-- 头像上传弹窗 -->
-  <a-modal
-    v-model:visible="avatarModalVisible"
-    title="更换头像"
-    @ok="handleAvatarSave"
-    :confirmLoading="avatarUploading"
-    okText="保存"
-  >
-    <a-form layout="vertical">
-      <a-form-item label="选择头像">
-        <a-avatar :src="previewAvatar" :size="100" style="margin-bottom: 16px">
-          <template #icon><UserOutlined /></template>
-        </a-avatar>
-        <a-input-search
-          v-model:value="avatarUrl"
-          placeholder="输入头像图片URL"
-          enter-button="预览"
-          @search="previewAvatar = avatarUrl"
-        />
-        <p style="margin-top: 8px; color: #999; font-size: 12px;">提示：可以直接粘贴图片链接，如 https://api.dicebear.com/7.x/avataaars/svg?seed=...</p>
-      </a-form-item>
-    </a-form>
-  </a-modal>
 </template>
 
 <script setup lang="ts">
@@ -207,10 +150,7 @@ import {
   CloudUploadOutlined, 
   UserOutlined, 
   DownOutlined,
-  LogoutOutlined,
-  LoginOutlined,
   AppstoreOutlined,
-  RobotOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined
 } from '@ant-design/icons-vue'
@@ -218,9 +158,10 @@ import FileTree from '@/components/FileTree.vue'
 import MonacoEditor from '@/components/editor/MonacoEditor.vue'
 import Preview from '@/components/preview/Preview.vue'
 import AIAssistant from '@/components/editor/AIAssistant.vue'
+import UserAvatar from '@/components/UserAvatar.vue'
 import { useProjectStore } from '@/stores/project'
 import { useUserStore } from '@/stores/user'
-import { saveProject, publishApp, getProject, updateUserAvatar, getPublishedAppByProject } from '@/api'
+import { saveProject, publishApp, getProject, getPublishedAppByProject } from '@/api'
 
 const router = useRouter()
 const route = useRoute()
@@ -269,11 +210,6 @@ const nextMajorVersion = computed(() => {
   const v = parseVersion(publishForm.value.currentVersion)
   return `${v.major + 1}.0.0`
 })
-
-const avatarModalVisible = ref(false)
-const avatarUploading = ref(false)
-const avatarUrl = ref('')
-const previewAvatar = ref('')
 
 const formatTime = (date: Date) => {
   return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
@@ -358,19 +294,6 @@ const goMyApps = () => {
 // 跳转到AI配置
 const goAIConfig = () => {
   router.push('/ai-config')
-}
-
-// 跳转到登录
-const goLogin = () => {
-  userStore.logout()
-  router.push('/login')
-}
-
-// 退出登录
-const logout = () => {
-  userStore.logout()
-  router.push('/login')
-  message.success('已退出登录')
 }
 
 // 保存项目
@@ -556,35 +479,6 @@ const handlePublish = async () => {
     message.error((isPublished.value ? '更新失败: ' : '发布失败: ') + (err.message || '未知错误'))
   } finally {
     publishing.value = false
-  }
-}
-
-const showAvatarModal = () => {
-  avatarUrl.value = userStore.currentUser?.avatar || ''
-  previewAvatar.value = avatarUrl.value
-  avatarModalVisible.value = true
-}
-
-const handleAvatarSave = async () => {
-  if (!avatarUrl.value.trim()) {
-    message.error('请输入头像URL')
-    return
-  }
-  
-  avatarUploading.value = true
-  try {
-    const res: any = await updateUserAvatar(userStore.currentUser!.id, avatarUrl.value)
-    if (res.code === 200) {
-      message.success('头像更新成功！')
-      userStore.setUser(res.data)
-      avatarModalVisible.value = false
-    } else {
-      message.error(res.message || '头像更新失败')
-    }
-  } catch (err: any) {
-    message.error('头像更新失败: ' + err.message)
-  } finally {
-    avatarUploading.value = false
   }
 }
 </script>

@@ -11,21 +11,7 @@
       </div>
       
       <div class="header-right">
-        <a-dropdown v-if="userStore.currentUser">
-          <a-button type="text" class="user-btn">
-            <UserOutlined />
-            {{ userStore.currentUser.username }}
-            <DownOutlined />
-          </a-button>
-          <template #overlay>
-            <a-menu>
-              <a-menu-item @click="logout">
-                <LogoutOutlined />
-                退出
-              </a-menu-item>
-            </a-menu>
-          </template>
-        </a-dropdown>
+        <UserAvatar />
       </div>
     </a-layout-header>
 
@@ -247,9 +233,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import { 
-  UserOutlined, 
-  DownOutlined,
-  LogoutOutlined,
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
@@ -263,6 +246,7 @@ import {
   ClockCircleOutlined,
   UndoOutlined
 } from '@ant-design/icons-vue'
+import UserAvatar from '@/components/UserAvatar.vue'
 import { useUserStore } from '@/stores/user'
 import { useProjectStore } from '@/stores/project'
 import { getProjectList, saveProject, publishApp, unpublishApp as apiUnpublishApp, getMyMarketApps, deleteProject, renameProject, getPublishedAppByProject, getAppVersions, rollbackApp } from '@/api'
@@ -324,12 +308,6 @@ const goHome = () => {
 
 const goMarket = () => {
   router.push('/market')
-}
-
-const logout = () => {
-  userStore.logout()
-  router.push('/login')
-  message.success('已退出登录')
 }
 
 const loadProjects = async () => {

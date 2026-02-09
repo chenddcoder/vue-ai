@@ -30,6 +30,13 @@ public class InitDb {
         } catch (Exception e) {
             // Column might already exist
         }
+
+        // Add bio column if not exists (for existing database)
+        try {
+            jdbcTemplate.execute("ALTER TABLE magic_sys_user ADD COLUMN bio TEXT");
+        } catch (Exception e) {
+            // Column might already exist
+        }
         
         // Create magic_sys_project table
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS magic_sys_project (" +

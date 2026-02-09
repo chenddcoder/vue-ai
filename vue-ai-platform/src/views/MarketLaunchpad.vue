@@ -13,32 +13,7 @@
         </div>
         
         <div class="header-right">
-          <a-dropdown v-if="userStore.currentUser">
-            <a-button type="text" class="user-btn">
-              <UserOutlined />
-              {{ userStore.currentUser.username }}
-              <span v-if="userStore.isGuest" class="guest-badge">游客</span>
-              <DownOutlined />
-            </a-button>
-            <template #overlay>
-              <a-menu>
-                <a-menu-item v-if="userStore.isGuest" @click="goLogin">
-                  <LoginOutlined />
-                  登录/注册
-                </a-menu-item>
-                <a-menu-divider v-if="userStore.isGuest" />
-                <a-menu-item @click="goProfile" v-if="!userStore.isGuest">
-                  <UserOutlined />
-                  个人中心
-                </a-menu-item>
-                <a-menu-item @click="logout">
-                  <LogoutOutlined />
-                  退出
-                </a-menu-item>
-              </a-menu>
-            </template>
-          </a-dropdown>
-          <a-button v-else type="primary" @click="goLogin">登录</a-button>
+          <UserAvatar />
         </div>
       </a-layout-header>
 
@@ -195,10 +170,6 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
-  UserOutlined,
-  DownOutlined,
-  LogoutOutlined,
-  LoginOutlined,
   AppstoreOutlined,
   MoreOutlined,
   FullscreenOutlined,
@@ -208,6 +179,7 @@ import {
   EyeOutlined,
   LikeOutlined
 } from '@ant-design/icons-vue'
+import UserAvatar from '@/components/UserAvatar.vue'
 import { useUserStore } from '@/stores/user'
 import { getMarketApps, getMarketAppDetail } from '@/api'
 import { AppDetailModal } from '@/components/community'
@@ -427,21 +399,6 @@ const goMyApps = () => {
 
 const goFavorites = () => {
   router.push('/favorites')
-}
-
-const goProfile = () => {
-  router.push('/profile')
-}
-
-const goLogin = () => {
-  userStore.logout()
-  router.push('/login')
-}
-
-const logout = () => {
-  userStore.logout()
-  router.push('/login')
-  message.success('已退出登录')
 }
 
 const handleSearch = () => {}

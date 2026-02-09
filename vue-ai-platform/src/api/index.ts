@@ -24,6 +24,10 @@ export const updateUserAvatar = (userId: number, avatar: string) => {
   return request.post<ApiResponse>('/api/auth/avatar', { userId, avatar })
 }
 
+export const changePassword = (data: { userId: number; oldPassword: string; newPassword: string }) => {
+  return request.post<ApiResponse>('/api/auth/password', data)
+}
+
 // 项目相关
 export const getProjectList = (userId: number) => {
   return request.get<ApiResponse>('/api/project/list', { params: { userId } })
@@ -147,6 +151,10 @@ export const checkUserFollow = (userId: number, followerId: number) => {
 
 export const getUserApps = (userId: number) => {
   return request.get<ApiResponse>(`/api/market/users/${userId}/apps`)
+}
+
+export const getUserProfile = (userId: number) => {
+  return request.get<ApiResponse>(`/api/auth/user`, { params: { userId } })
 }
 
 // AI代码生成

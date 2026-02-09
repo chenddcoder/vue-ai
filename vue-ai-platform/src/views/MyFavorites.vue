@@ -13,23 +13,7 @@
         </div>
         
         <div class="header-right">
-          <a-dropdown v-if="userStore.currentUser">
-            <a-button type="text" class="user-btn">
-              <UserOutlined />
-              {{ userStore.currentUser.username }}
-              <span v-if="userStore.isGuest" class="guest-badge">游客</span>
-              <DownOutlined />
-            </a-button>
-            <template #overlay>
-              <a-menu>
-                <a-menu-item @click="logout">
-                  <LogoutOutlined />
-                  退出
-                </a-menu-item>
-              </a-menu>
-            </template>
-          </a-dropdown>
-          <a-button v-else type="primary" @click="goLogin">登录</a-button>
+          <UserAvatar />
         </div>
       </a-layout-header>
 
@@ -154,9 +138,6 @@ import { ref, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import {
-  UserOutlined,
-  DownOutlined,
-  LogoutOutlined,
   AppstoreOutlined,
   FullscreenOutlined,
   FullscreenExitOutlined,
@@ -164,6 +145,7 @@ import {
   LikeOutlined,
   StarOutlined
 } from '@ant-design/icons-vue'
+import UserAvatar from '@/components/UserAvatar.vue'
 import { useUserStore } from '@/stores/user'
 import { getUserFavorites, toggleAppFavorite, getMarketAppDetail } from '@/api'
 import { AppDetailModal } from '@/components/community'
@@ -209,12 +191,6 @@ const goMyApps = () => router.push('/my-apps')
 const goLogin = () => {
   userStore.logout()
   router.push('/login')
-}
-
-const logout = () => {
-  userStore.logout()
-  router.push('/login')
-  message.success('已退出登录')
 }
 
 const loadFavorites = async () => {

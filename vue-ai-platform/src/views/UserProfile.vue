@@ -9,19 +9,7 @@
           <div class="logo" @click="goHome">Vue AI Platform</div>
         </div>
         <div class="header-right">
-          <a-dropdown v-if="userStore.currentUser">
-            <a-button type="text" class="user-btn">
-              <UserOutlined /> {{ userStore.currentUser.username }}
-            </a-button>
-            <template #overlay>
-              <a-menu>
-                <a-menu-item key="logout" @click="logout">
-                  <LogoutOutlined /> 退出
-                </a-menu-item>
-              </a-menu>
-            </template>
-          </a-dropdown>
-          <a-button v-else type="primary" @click="goLogin">登录</a-button>
+          <UserAvatar />
         </div>
       </a-layout-header>
 
@@ -41,21 +29,31 @@
               </div>
             </div>
           </div>
-          <a-button
-            v-if="isSelf"
-            type="default"
-            @click="goEditProfile"
-          >
-            编辑个人资料
-          </a-button>
-          <a-button
-            v-else-if="userStore.currentUser"
-            :type="isFollowing ? 'default' : 'primary'"
-            @click="toggleFollow"
-            :loading="followingLoading"
-          >
-            {{ isFollowing ? '已关注' : '关注' }}
-          </a-button>
+          <div class="profile-actions">
+            <a-button
+              v-if="isSelf"
+              type="default"
+              @click="goEditProfile"
+            >
+              编辑个人资料
+            </a-button>
+            <a-button
+              v-if="isSelf"
+              type="default"
+              @click="showPasswordModal"
+              class="password-btn"
+            >
+              修改密码
+            </a-button>
+            <a-button
+              v-else-if="userStore.currentUser"
+              :type="isFollowing ? 'default' : 'primary'"
+              @click="toggleFollow"
+              :loading="followingLoading"
+            >
+              {{ isFollowing ? '已关注' : '关注' }}
+            </a-button>
+          </div>
         </div>
 
         <a-tabs v-model:activeKey="activeTab" class="profile-tabs">
@@ -127,6 +125,26 @@
         </a-tabs>
       </a-layout-content>
     </a-layout>
+
+    <a-modal
+      v-model:open="passwordModalVisible"
+      title="修改密码"
+      :confirm-loading="changingPassword"
+      @ok="handlePasswordChange"
+      @cancel="closePasswordModal"
+    >
+      <a-form :model="passwordForm" layout="vertical">
+        <a-form-item label="当前密码" required>
+          <a-input-password v-model:value="passwordForm.oldPassword" placeholder="请输入当前密码" />
+        </a-form-item>
+        <a-form-item label="新密码" required>
+          <a-input-password v-model:value="passwordForm.newPassword" placeholder="请输入新密码（至少6位）" />
+        </a-form-item>
+        <a-form-item label="确认新密码" required>
+          <a-input-password v-model:value="passwordForm.confirmPassword" placeholder="请再次输入新密码" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -143,12 +161,15 @@ import {
   EyeOutlined
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
+import UserAvatar from '@/components/UserAvatar.vue'
 import {
   getUserApps,
   getUserFollowers,
   getUserFollowing,
   checkUserFollow,
-  toggleUserFollow
+  toggleUserFollow,
+  getUserProfile,
+  changePassword
 } from '@/api'
 
 const route = useRoute()
@@ -163,21 +184,68 @@ const isFollowing = ref(false)
 const followingLoading = ref(false)
 const activeTab = ref('apps')
 
+const passwordModalVisible = ref(false)
+const changingPassword = ref(false)
+const passwordForm = ref({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+
+const showPasswordModal = () => {
+  passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
+  passwordModalVisible.value = true
+}
+
+const closePasswordModal = () => {
+  passwordModalVisible.value = false
+}
+
+const handlePasswordChange = async () => {
+  if (!passwordForm.value.oldPassword) {
+    message.warning('请输入当前密码')
+    return
+  }
+  if (!passwordForm.value.newPassword || passwordForm.value.newPassword.length < 6) {
+    message.warning('新密码至少需要6位')
+    return
+  }
+  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
+    message.warning('两次输入的密码不一致')
+    return
+  }
+  if (!userStore.currentUser?.id) {
+    message.warning('请先登录')
+    return
+  }
+
+  changingPassword.value = true
+  try {
+    const res = await changePassword({
+      userId: userStore.currentUser.id,
+      oldPassword: passwordForm.value.oldPassword,
+      newPassword: passwordForm.value.newPassword
+    }) as any
+    if (res.code === 200) {
+      message.success('密码修改成功')
+      passwordModalVisible.value = false
+      userStore.logout()
+      router.push('/login')
+    } else {
+      message.error(res.message || '密码修改失败')
+    }
+  } catch (error) {
+    message.error('密码修改失败')
+  } finally {
+    changingPassword.value = false
+  }
+}
+
 const targetUserId = computed(() => parseInt(route.params.userId as string) || userStore.currentUser?.id)
 const isSelf = computed(() => targetUserId.value === userStore.currentUser?.id)
 
 const goBack = () => router.back()
 const goHome = () => router.push('/project/new')
-const goLogin = () => {
-  userStore.logout()
-  router.push('/login')
-}
-
-const logout = () => {
-  userStore.logout()
-  router.push('/login')
-  message.success('已退出登录')
-}
 
 const goEditProfile = () => {
   message.info('编辑个人资料功能开发中')
@@ -199,25 +267,36 @@ const loadData = async () => {
   }
 
   try {
-    const [appsRes, followersRes, followingRes] = await Promise.all([
+    const [appsRes, followersRes, followingRes, profileRes] = await Promise.all([
       getUserApps(userId),
       getUserFollowers(userId),
-      getUserFollowing(userId)
+      getUserFollowing(userId),
+      getUserProfile(userId)
     ])
 
     const appsData = appsRes.data as any
     const followersData = followersRes.data as any
     const followingData = followingRes.data as any
+    const profileData = profileRes.data as any
 
     if (appsData) userApps.value = appsData
     if (followersData) followers.value = followersData
     if (followingData) following.value = followingData
 
-    profile.value = {
-      id: userId,
-      username: userApps.value[0]?.author_name || `用户${userId}`,
-      avatar: null,
-      bio: null
+    if (profileData) {
+      profile.value = {
+        id: userId,
+        username: profileData.username || `用户${userId}`,
+        avatar: profileData.avatar || null,
+        bio: profileData.bio || '暂无个人简介'
+      }
+    } else {
+      profile.value = {
+        id: userId,
+        username: userApps.value[0]?.author_name || `用户${userId}`,
+        avatar: null,
+        bio: '暂无个人简介'
+      }
     }
   } catch (error) {
     message.error('加载数据失败')
@@ -269,6 +348,8 @@ onMounted(loadData)
 
 .profile-header { display: flex; justify-content: space-between; align-items: center; background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
 .user-info { display: flex; align-items: center; gap: 20px; }
+.profile-actions { display: flex; gap: 12px; }
+.password-btn { color: #1890ff; border-color: #1890ff; }
 .user-details h1 { margin: 0 0 4px 0; font-size: 24px; }
 .bio { color: #666; margin-bottom: 8px; }
 .stats { display: flex; gap: 20px; color: #666; }

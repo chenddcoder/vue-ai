@@ -41,7 +41,8 @@ public class AuthController {
             Map<String, Object> userData = new HashMap<>();
             userData.put("id", user.get("id"));
             userData.put("username", user.get("username"));
-            userData.put("avatar", "");
+            userData.put("avatar", user.get("avatar") != null ? user.get("avatar") : "");
+            userData.put("bio", user.get("bio") != null ? user.get("bio") : "");
             userData.put("role", user.get("role"));
             result.put("data", userData);
             result.put("token", "token_" + user.get("id")); 
@@ -83,7 +84,8 @@ public class AuthController {
             Map<String, Object> userData = new HashMap<>();
             userData.put("id", user.get("id"));
             userData.put("username", user.get("username"));
-            userData.put("avatar", "");
+            userData.put("avatar", user.get("avatar") != null ? user.get("avatar") : "");
+            userData.put("bio", user.get("bio") != null ? user.get("bio") : "");
             userData.put("role", user.get("role"));
             result.put("data", userData);
             result.put("token", "token_" + user.get("id"));
@@ -112,6 +114,7 @@ public class AuthController {
             userData.put("id", user.get("id"));
             userData.put("username", user.get("username"));
             userData.put("avatar", user.get("avatar") != null ? user.get("avatar") : "");
+            userData.put("bio", user.get("bio") != null ? user.get("bio") : "");
             userData.put("role", user.get("role"));
             result.put("data", userData);
             result.put("token", "token_" + user.get("id")); 
@@ -147,6 +150,48 @@ public class AuthController {
                 result.put("code", 404);
                 result.put("message", "User not found");
             }
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    @PostMapping("/password")
+    public Map<String, Object> changePassword(@RequestBody Map<String, Object> body) {
+        Integer userId = (Integer) body.get("userId");
+        String oldPassword = (String) body.get("oldPassword");
+        String newPassword = (String) body.get("newPassword");
+        
+        Map<String, Object> result = new HashMap<>();
+        try {
+            List<Map<String, Object>> users = jdbcTemplate.queryForList(
+                "SELECT * FROM magic_sys_user WHERE id = ?", userId);
+            if (users.isEmpty()) {
+                result.put("code", 404);
+                result.put("message", "User not found");
+                return result;
+            }
+            
+            Map<String, Object> user = users.get(0);
+            String currentPassword = (String) user.get("password");
+            
+            if (!oldPassword.equals(currentPassword)) {
+                result.put("code", 401);
+                result.put("message", "Current password is incorrect");
+                return result;
+            }
+            
+            if (newPassword == null || newPassword.length() < 6) {
+                result.put("code", 400);
+                result.put("message", "New password must be at least 6 characters");
+                return result;
+            }
+            
+            jdbcTemplate.update("UPDATE magic_sys_user SET password = ? WHERE id = ?", newPassword, userId);
+            
+            result.put("code", 200);
+            result.put("message", "Password changed successfully");
         } catch (Exception e) {
             result.put("code", 500);
             result.put("message", e.getMessage());

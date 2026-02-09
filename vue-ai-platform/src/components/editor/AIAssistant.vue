@@ -163,6 +163,7 @@ import { useProjectStore } from '@/stores/project'
 import { generateCode, generateModuleCode } from '@/api'
 import AIConfig from '@/views/AIConfig.vue'
 import AIConfigForm from '@/components/AIConfigForm.vue'
+import { generateWithClient } from '@/services/aiClient'
 
 const aiStore = useAIStore()
 const userStore = useUserStore()
@@ -198,7 +199,7 @@ const examplePrompts = ref([
 ])
 
 const sendMessage = async () => {
-  if (!prompt.value.trim() || !currentProvider.value) {
+  if (!prompt.value.trim() || !currentProvider.value || !aiStore.activeConfig) {
     message.warning('请先配置AI模型')
     return
   }
@@ -209,64 +210,82 @@ const sendMessage = async () => {
   loading.value = true
   loadingText.value = '正在连接AI服务...'
 
-  try {
-    // 构建请求参数
-    const request = {
-      projectId: projectStore.currentProjectId || null,
-      requirement: userPrompt,
-      userId: userStore.userInfo?.id || 0,
-      files: projectStore.files
-    }
+  const request = {
+    projectId: projectStore.currentProjectId || null,
+    requirement: userPrompt,
+    userId: userStore.userInfo?.id || 0,
+    files: projectStore.files
+  }
 
-    loadingText.value = '正在分析项目上下文并生成代码...'
-    // 调用智能代码生成模块
-    const res: any = await generateModuleCode(request)
-    loadingText.value = '正在处理响应...'
-    
-    // 检查响应状态
-    if (res.code !== 1) {
-      throw new Error(res.message || 'AI生成失败')
+  let clientSuccess = false
+  let clientResponse: any = null
+
+  try {
+    loadingText.value = '正在通过客户端调用AI（包含项目上下文）...'
+    clientResponse = await generateWithClient(
+      currentProvider.value,
+      aiStore.activeConfig,
+      request
+    )
+    clientSuccess = true
+  } catch (clientErr: any) {
+    console.warn('客户端AI调用失败，将尝试后端调用:', clientErr.message)
+    loadingText.value = '客户端调用失败，尝试后端调用...'
+  }
+
+  try {
+    if (clientSuccess && clientResponse && clientResponse.files && clientResponse.files.length > 0) {
+      const files = clientResponse.files
+      let firstFile = ''
+      for (const file of files) {
+        projectStore.updateFile(file.path, file.content)
+        if (!firstFile) firstFile = file.path
+      }
+      if (firstFile) {
+        projectStore.setActiveFile(firstFile)
+      }
+      messages.value.push({ 
+        role: 'assistant', 
+        content: `已成功生成 ${files.length} 个文件：\n${files.map((f: any) => f.path).join('\n')}`
+      })
+      loadingText.value = ''
+    } else {
+      loadingText.value = '正在通过后端调用AI...'
+      const res: any = await generateModuleCode(request)
+      if (res.code !== 1) {
+        throw new Error(res.message || 'AI生成失败')
+      }
+      const files = res.files || []
+      if (!files || files.length === 0) {
+        throw new Error('AI未返回任何文件')
+      }
+      let firstFile = ''
+      for (const file of files) {
+        projectStore.updateFile(file.path, file.content)
+        if (!firstFile) firstFile = file.path
+      }
+      if (firstFile) {
+        projectStore.setActiveFile(firstFile)
+      }
+      messages.value.push({ 
+        role: 'assistant', 
+        content: `已成功生成 ${files.length} 个文件：\n${files.map((f: any) => f.path).join('\n')}`
+      })
+      loadingText.value = ''
     }
-    
-    // 获取生成的文件列表
-    const files = res.files || []
-    
-    if (!files || files.length === 0) {
-      throw new Error('AI未返回任何文件')
-    }
-    
-    // 更新项目文件
-    let firstFile = ''
-    for (const file of files) {
-      projectStore.updateFile(file.path, file.content)
-      if (!firstFile) firstFile = file.path
-    }
-    
-    // 选中第一个生成的文件
-    if (firstFile) {
-      projectStore.setActiveFile(firstFile)
-    }
-    
-    messages.value.push({ 
-      role: 'assistant', 
-      content: `已成功生成 ${files.length} 个文件：\n${files.map((f: any) => f.path).join('\n')}`
-    })
-    loadingText.value = ''
   } catch (err: any) {
     console.error('AI生成错误:', err)
     
-    // 优先使用后端返回的错误信息
     let errorMessage = err.response?.data?.message || err.message || '生成代码时遇到了错误'
     
-    // 处理API密钥错误
     if (errorMessage.includes('401') || errorMessage.includes('Unauthorized') || errorMessage.includes('API密钥')) {
       errorMessage = 'API密钥无效或已过期，请检查AI配置中的API Key'
       loadingText.value = '🔑 API密钥错误'
     } else if (errorMessage.includes('timeout') || errorMessage.includes('超时')) {
       errorMessage = 'AI响应超时，请稍后重试'
       loadingText.value = '⏱️ 请求超时'
-    } else if (errorMessage.includes('network') || errorMessage.includes('网络') || errorMessage.includes('connection')) {
-      errorMessage = '网络连接失败，请检查网络设置'
+    } else if (errorMessage.includes('network') || errorMessage.includes('网络') || errorMessage.includes('connection') || errorMessage.includes('CORS')) {
+      errorMessage = '网络连接失败，请检查网络设置或API密钥'
       loadingText.value = '🌐 网络错误'
     } else {
       loadingText.value = `❌ ${errorMessage}`
