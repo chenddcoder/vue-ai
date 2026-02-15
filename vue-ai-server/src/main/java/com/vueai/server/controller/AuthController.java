@@ -198,4 +198,60 @@ public class AuthController {
         }
         return result;
     }
+
+    @PostMapping("/profile")
+    public Map<String, Object> updateProfile(@RequestBody Map<String, Object> body) {
+        Integer userId = (Integer) body.get("userId");
+        String username = (String) body.get("username");
+        String bio = (String) body.get("bio");
+        
+        Map<String, Object> result = new HashMap<>();
+        try {
+            // 检查用户是否存在
+            List<Map<String, Object>> users = jdbcTemplate.queryForList(
+                "SELECT * FROM magic_sys_user WHERE id = ?", userId);
+            if (users.isEmpty()) {
+                result.put("code", 404);
+                result.put("message", "User not found");
+                return result;
+            }
+            
+            // 检查用户名是否已被其他用户使用
+            if (username != null && !username.isEmpty()) {
+                List<Map<String, Object>> existingUsers = jdbcTemplate.queryForList(
+                    "SELECT * FROM magic_sys_user WHERE username = ? AND id != ?", username, userId);
+                if (!existingUsers.isEmpty()) {
+                    result.put("code", 400);
+                    result.put("message", "Username already exists");
+                    return result;
+                }
+            }
+            
+            // 更新用户信息
+            jdbcTemplate.update(
+                "UPDATE magic_sys_user SET username = ?, bio = ? WHERE id = ?",
+                username != null ? username : "",
+                bio != null ? bio : "",
+                userId);
+            
+            // 获取更新后的用户信息
+            List<Map<String, Object>> updatedUsers = jdbcTemplate.queryForList(
+                "SELECT * FROM magic_sys_user WHERE id = ?", userId);
+            Map<String, Object> user = updatedUsers.get(0);
+            
+            result.put("code", 200);
+            result.put("message", "Profile updated successfully");
+            Map<String, Object> userData = new HashMap<>();
+            userData.put("id", user.get("id"));
+            userData.put("username", user.get("username"));
+            userData.put("avatar", user.get("avatar") != null ? user.get("avatar") : "");
+            userData.put("bio", user.get("bio") != null ? user.get("bio") : "");
+            userData.put("role", user.get("role"));
+            result.put("data", userData);
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
 }

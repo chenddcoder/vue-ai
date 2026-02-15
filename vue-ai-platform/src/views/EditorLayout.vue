@@ -22,6 +22,8 @@
       
       <div class="header-right">
         <a-space>
+          <ThemeToggle />
+          
           <a-button type="primary" @click="handleSave" :loading="saving">
             <template #icon><SaveOutlined /></template>
             保存
@@ -156,6 +158,7 @@ import {
 } from '@ant-design/icons-vue'
 import FileTree from '@/components/FileTree.vue'
 import MonacoEditor from '@/components/editor/MonacoEditor.vue'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 import Preview from '@/components/preview/Preview.vue'
 import AIAssistant from '@/components/editor/AIAssistant.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
@@ -594,5 +597,89 @@ const handlePublish = async () => {
   padding: 4px 10px;
   background: rgba(255, 255, 255, 0.15);
   border-radius: 4px;
+}
+
+/* 深色模式样式 */
+.dark-theme .editor-layout :deep(.ant-layout-sider) {
+  background: #1f1f1f !important;
+}
+.dark-theme .editor-layout :deep(.ant-tabs) {
+  background: #1f1f1f;
+}
+.dark-theme .editor-layout :deep(.ant-tabs-tab) {
+  color: rgba(255, 255, 255, 0.65);
+}
+.dark-theme .editor-layout :deep(.ant-tabs-tab-active) {
+  color: #1890ff;
+}
+.dark-theme .editor-layout :deep(.ant-tabs-nav) {
+  background: #1f1f1f;
+  border-color: #303030;
+}
+.dark-theme .project-name {
+  background: rgba(255, 255, 255, 0.1);
+}
+.dark-theme .project-name span {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .editor-container {
+  background: #1e1e1e;
+}
+.dark-theme .preview-container {
+  background: #f0f2f5;
+}
+.dark-theme .preview-frame {
+  background: white;
+}
+.dark-theme .file-tree-header {
+  background: #1f1f1f;
+  border-color: #303030;
+}
+.dark-theme .file-tree-header .header-title {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .file-tree-content {
+  background: #1f1f1f;
+}
+.dark-theme :deep(.ant-tree) {
+  background: transparent;
+}
+.dark-theme :deep(.ant-tree-node-content-wrapper) {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme :deep(.ant-tree-node-selected) {
+  background: #1890ff !important;
+}
+.dark-theme .header {
+  background: #001529;
+}
+.dark-theme .logo {
+  color: rgba(255, 255, 255, 0.95);
+}
+.dark-theme :deep(.ant-menu) {
+  background: transparent;
+}
+.dark-theme :deep(.ant-menu-item) {
+  color: rgba(255, 255, 255, 0.65);
+}
+.dark-theme :deep(.ant-menu-item:hover) {
+  color: #fff;
+}
+.dark-theme :deep(.ant-menu-item-selected) {
+  background: #1890ff;
+  color: #fff;
+}
+.dark-theme .user-btn {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme :deep(.ant-btn-text) {
+  color: rgba(255, 255, 255, 0.65);
+}
+.dark-theme :deep(.ant-btn-text:hover) {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+.dark-theme :deep(.ant-divider) {
+  border-color: #303030;
 }
 </style>

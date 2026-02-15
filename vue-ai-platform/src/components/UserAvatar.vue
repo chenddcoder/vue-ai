@@ -141,4 +141,23 @@ const handleAvatarSave = async () => {
   font-size: 12px;
   margin-left: 8px;
 }
+
+/* 深色模式样式 */
+.dark-theme :deep(.ant-dropdown-menu) {
+  background: #1f1f1f;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.dark-theme :deep(.ant-dropdown-menu-item) {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme :deep(.ant-dropdown-menu-item:hover) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.dark-theme :deep(.ant-dropdown-menu-item-disabled) {
+  color: rgba(255, 255, 255, 0.25);
+}
+.dark-theme :deep(.ant-dropdown-menu-item-divider) {
+  background: #303030;
+}
 </style>

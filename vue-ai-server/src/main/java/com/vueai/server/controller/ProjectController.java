@@ -63,12 +63,18 @@ public class ProjectController {
             if (id == null) {
                 jdbcTemplate.update("INSERT INTO magic_sys_project (name, description, owner_id, content) VALUES (?, ?, ?, ?)",
                         name, description, ownerId, content);
+                // 获取生成的ID
+                Integer generatedId = jdbcTemplate.queryForObject("SELECT last_insert_rowid()", Integer.class);
+                result.put("code", 200);
+                result.put("message", "Saved successfully");
+                result.put("data", Map.of("id", generatedId, "name", name));
             } else {
                 jdbcTemplate.update("UPDATE magic_sys_project SET name = ?, description = ?, content = ? WHERE id = ?",
                         name, description, content, id);
+                result.put("code", 200);
+                result.put("message", "Updated successfully");
+                result.put("data", Map.of("id", id, "name", name));
             }
-            result.put("code", 200);
-            result.put("message", "Saved successfully");
         } catch (Exception e) {
             result.put("code", 500);
             result.put("message", e.getMessage());

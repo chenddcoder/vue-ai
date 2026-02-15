@@ -569,4 +569,93 @@ onMounted(() => {
 .chat-history::-webkit-scrollbar-thumb:hover {
   background: #999;
 }
+
+/* 深色模式样式 */
+.dark-theme .ai-assistant {
+  background: #1f1f1f;
+  border-left-color: #303030;
+}
+.dark-theme .ai-status-bar {
+  background: #1f1f1f;
+  border-bottom-color: #303030;
+}
+.dark-theme .provider-name {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .model-name {
+  color: rgba(255, 255, 255, 0.45);
+}
+.dark-theme .chat-history {
+  background: #141414;
+}
+.dark-theme .welcome-message h3 {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .welcome-message p {
+  color: rgba(255, 255, 255, 0.65);
+}
+.dark-theme .example-prompts h4 {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme :deep(.ant-tag) {
+  background: #2a2a2a;
+  border-color: #434343;
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme :deep(.ant-tag:hover) {
+  background: #1890ff;
+  border-color: #1890ff;
+  color: #fff;
+}
+.dark-theme .message-text {
+  background: #1f1f1f;
+  border-color: #434343;
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .message.user .message-text {
+  background: #1890ff;
+  color: #fff;
+}
+.dark-theme .usage-info {
+  color: rgba(255, 255, 255, 0.45);
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+.dark-theme .input-area {
+  background: #1f1f1f;
+  border-top-color: #303030;
+}
+.dark-theme .advanced-options {
+  background: #2a2a2a;
+  border-bottom-color: #303030;
+}
+.dark-theme :deep(.ant-input) {
+  background: #141414;
+  border-color: #434343;
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme :deep(.ant-input::placeholder) {
+  color: rgba(255, 255, 255, 0.3);
+}
+.dark-theme :deep(.ant-input-number) {
+  background: #141414;
+  border-color: #434343;
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme :deep(.ant-input-number-input) {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .loading-text {
+  background: rgba(250, 173, 20, 0.1);
+  border-color: rgba(250, 173, 20, 0.3);
+  color: #faad14;
+}
+.dark-theme .chat-history::-webkit-scrollbar-track {
+  background: #1f1f1f;
+}
+.dark-theme .chat-history::-webkit-scrollbar-thumb {
+  background: #434343;
+}
+.dark-theme .chat-history::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
 </style>

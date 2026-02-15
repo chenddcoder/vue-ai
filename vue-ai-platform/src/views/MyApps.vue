@@ -749,4 +749,34 @@ onMounted(() => {
 .version-actions {
   margin-top: 8px;
 }
+
+/* 深色模式样式 */
+.dark-theme .content {
+  background: #141414;
+}
+.dark-theme .page-header h1 {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .project-desc,
+.dark-theme .app-desc {
+  color: rgba(255, 255, 255, 0.65);
+}
+.dark-theme .project-meta,
+.dark-theme .app-meta {
+  color: rgba(255, 255, 255, 0.45);
+}
+.dark-theme .version-item {
+  background: #1f1f1f;
+  border-color: #303030;
+}
+.dark-theme .version-tag {
+  background: #1890ff;
+  color: #fff;
+}
+.dark-theme .version-time {
+  color: rgba(255, 255, 255, 0.45);
+}
+.dark-theme .version-desc {
+  color: rgba(255, 255, 255, 0.65);
+}
 </style>

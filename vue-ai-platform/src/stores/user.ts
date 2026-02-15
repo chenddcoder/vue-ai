@@ -5,6 +5,7 @@ interface User {
   id: number
   username: string
   avatar?: string
+  bio?: string
 }
 
 const USER_STORAGE_KEY = 'vueai_user_info'

@@ -1045,4 +1045,108 @@ onMounted(() => {
   opacity: 0;
   transform: scale(0.9);
 }
+
+/* 深色模式样式 */
+.dark-theme .launchpad-content {
+  background: #141414;
+}
+.dark-theme .market-header h1 {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .market-header p {
+  color: rgba(255, 255, 255, 0.65);
+}
+.dark-theme .app-card {
+  background: #1f1f1f;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.45);
+}
+.dark-theme .app-card:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.65);
+}
+.dark-theme .app-name {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .app-author {
+  color: rgba(255, 255, 255, 0.65);
+}
+.dark-theme .app-stats {
+  color: rgba(255, 255, 255, 0.45);
+}
+.dark-theme .category-title {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .dock-bar {
+  background: rgba(30, 30, 30, 0.9);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.dark-theme .dock-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.dark-theme .app-window {
+  background: #1f1f1f;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+.dark-theme .app-window-header {
+  background: linear-gradient(180deg, #2a2a2a 0%, #1f1f1f 100%);
+  border-color: #303030;
+}
+.dark-theme .window-title {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme :deep(.ant-input-search-icon) {
+  color: rgba(255, 255, 255, 0.45);
+}
+.dark-theme :deep(.ant-input-affix-wrapper) {
+  background: transparent;
+  border-color: #434343;
+}
+.dark-theme :deep(.ant-input-affix-wrapper:hover) {
+  border-color: #1890ff;
+}
+.dark-theme :deep(.ant-input) {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme :deep(.ant-input::placeholder) {
+  color: rgba(255, 255, 255, 0.3);
+}
+.dark-theme .app-icon-wrapper {
+  background: #1f1f1f;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+}
+.dark-theme .app-icon-wrapper.is-hovering {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+}
+.dark-theme .app-name {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .app-author {
+  color: rgba(255, 255, 255, 0.65);
+}
+.dark-theme .more-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.65);
+}
+.dark-theme .more-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #1890ff;
+}
+.dark-theme :deep(.ant-tag) {
+  background: transparent;
+  border-color: #434343;
+  color: rgba(255, 255, 255, 0.65);
+}
+.dark-theme :deep(.ant-tag:hover) {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+.dark-theme .empty-state {
+  color: rgba(255, 255, 255, 0.65);
+}
+.dark-theme .empty-state h3 {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .empty-state p {
+  color: rgba(255, 255, 255, 0.45);
+}
 </style>

@@ -383,4 +383,48 @@ onMounted(() => {
 :deep(.ant-descriptions-item-content) {
   color: #333;
 }
+
+/* 深色模式样式 */
+.dark-theme .ai-config-page :deep(.ant-layout-content) {
+  background: #141414;
+}
+.dark-theme .page-header h1 {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .page-header p {
+  color: rgba(255, 255, 255, 0.65);
+}
+.dark-theme .config-card {
+  background: #1f1f1f;
+  border-color: #303030;
+}
+.dark-theme .config-card:hover {
+  border-color: #1890ff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+.dark-theme .config-card.active {
+  background: rgba(24, 144, 255, 0.1);
+  border-color: #1890ff;
+}
+.dark-theme .config-name {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .config-model {
+  color: rgba(255, 255, 255, 0.65);
+}
+.dark-theme .update-time {
+  color: rgba(255, 255, 255, 0.45);
+}
+.dark-theme :deep(.ant-descriptions-item-label) {
+  color: rgba(255, 255, 255, 0.65);
+}
+.dark-theme :deep(.ant-descriptions-item-content) {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .test-result-details {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .test-result-details p {
+  color: rgba(255, 255, 255, 0.85);
+}
 </style>

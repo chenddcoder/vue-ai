@@ -145,6 +145,29 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <a-modal
+      v-model:open="profileModalVisible"
+      title="编辑个人资料"
+      :confirm-loading="savingProfile"
+      @ok="handleProfileSave"
+      @cancel="closeProfileModal"
+    >
+      <a-form :model="profileForm" layout="vertical">
+        <a-form-item label="用户名" required>
+          <a-input v-model:value="profileForm.username" placeholder="请输入用户名" />
+        </a-form-item>
+        <a-form-item label="个人简介">
+          <a-textarea 
+            v-model:value="profileForm.bio" 
+            placeholder="请输入个人简介"
+            :rows="4"
+            :maxlength="200"
+            show-count
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -169,7 +192,8 @@ import {
   checkUserFollow,
   toggleUserFollow,
   getUserProfile,
-  changePassword
+  changePassword,
+  updateUserProfile
 } from '@/api'
 
 const route = useRoute()
@@ -190,6 +214,13 @@ const passwordForm = ref({
   oldPassword: '',
   newPassword: '',
   confirmPassword: ''
+})
+
+const profileModalVisible = ref(false)
+const savingProfile = ref(false)
+const profileForm = ref({
+  username: '',
+  bio: ''
 })
 
 const showPasswordModal = () => {
@@ -248,7 +279,57 @@ const goBack = () => router.back()
 const goHome = () => router.push('/project/new')
 
 const goEditProfile = () => {
-  message.info('编辑个人资料功能开发中')
+  profileForm.value = {
+    username: profile.value?.username || '',
+    bio: profile.value?.bio || ''
+  }
+  profileModalVisible.value = true
+}
+
+const closeProfileModal = () => {
+  profileModalVisible.value = false
+}
+
+const handleProfileSave = async () => {
+  if (!profileForm.value.username.trim()) {
+    message.warning('请输入用户名')
+    return
+  }
+  
+  if (!userStore.currentUser?.id) {
+    message.warning('请先登录')
+    return
+  }
+
+  savingProfile.value = true
+  try {
+    const res: any = await updateUserProfile({
+      userId: userStore.currentUser.id,
+      username: profileForm.value.username.trim(),
+      bio: profileForm.value.bio.trim()
+    })
+    
+    if (res.code === 200) {
+      message.success('个人资料更新成功')
+      profileModalVisible.value = false
+      // 更新本地数据
+      if (profile.value) {
+        profile.value.username = res.data.username
+        profile.value.bio = res.data.bio
+      }
+      // 更新store中的用户信息
+      if (userStore.currentUser) {
+        userStore.currentUser.username = res.data.username
+        userStore.currentUser.bio = res.data.bio
+      }
+    } else {
+      message.error(res.message || '更新失败')
+    }
+  } catch (error: any) {
+    message.error(error.message || '更新失败')
+  } finally {
+    savingProfile.value = false
+  }
 }
 
 const goToApp = (appId: number) => {
@@ -373,4 +454,21 @@ onMounted(loadData)
 .user-info .bio { color: #999; font-size: 12px; }
 
 .profile-tabs { background: white; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+/* 深色模式样式 */
+.dark-theme .user-profile-page { background: #141414; }
+.dark-theme .profile-header { background: #1f1f1f; box-shadow: 0 2px 8px rgba(0,0,0,0.45); }
+.dark-theme .user-details h1 { color: rgba(255, 255, 255, 0.85); }
+.dark-theme .bio { color: rgba(255, 255, 255, 0.65); }
+.dark-theme .stats { color: rgba(255, 255, 255, 0.65); }
+.dark-theme .stats span strong { color: rgba(255, 255, 255, 0.85); }
+.dark-theme .app-item { background: #1f1f1f; box-shadow: 0 2px 8px rgba(0,0,0,0.45); }
+.dark-theme .app-item:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.65); }
+.dark-theme .app-name { color: rgba(255, 255, 255, 0.85); }
+.dark-theme .app-stats { color: rgba(255, 255, 255, 0.45); }
+.dark-theme .user-item { background: #1f1f1f; box-shadow: 0 2px 8px rgba(0,0,0,0.45); }
+.dark-theme .user-item:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.65); }
+.dark-theme .user-info .username { color: rgba(255, 255, 255, 0.85); }
+.dark-theme .user-info .bio { color: rgba(255, 255, 255, 0.45); }
+.dark-theme .profile-tabs { background: #1f1f1f; box-shadow: 0 2px 8px rgba(0,0,0,0.45); }
 </style>

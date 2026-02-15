@@ -28,6 +28,10 @@ export const changePassword = (data: { userId: number; oldPassword: string; newP
   return request.post<ApiResponse>('/api/auth/password', data)
 }
 
+export const updateUserProfile = (data: { userId: number; username: string; bio: string }) => {
+  return request.post<ApiResponse>('/api/auth/profile', data)
+}
+
 // 项目相关
 export const getProjectList = (userId: number) => {
   return request.get<ApiResponse>('/api/project/list', { params: { userId } })

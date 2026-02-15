@@ -30,6 +30,16 @@
         <a-tooltip title="刷新">
           <span class="action-btn"><ReloadOutlined /></span>
         </a-tooltip>
+        <a-tooltip title="导入项目">
+          <span class="action-btn" @click="handleImport"><UploadOutlined /></span>
+        </a-tooltip>
+        <input
+          ref="fileInput"
+          type="file"
+          accept=".zip"
+          style="display: none"
+          @change="onFileSelected"
+        />
         <a-tooltip title="导出项目">
           <span class="action-btn" @click="handleExport"><DownloadOutlined /></span>
         </a-tooltip>
@@ -89,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useProjectStore } from '@/stores/project'
 import { storeToRefs } from 'pinia'
 import JSZip from 'jszip'
@@ -104,6 +114,7 @@ import {
   FileAddOutlined,
   ReloadOutlined,
   DownloadOutlined,
+  UploadOutlined,
   DownOutlined,
   RightOutlined
 } from '@ant-design/icons-vue'
@@ -428,6 +439,61 @@ const handleExport = async () => {
   }
 }
 
+// 导入功能
+const fileInput = ref<HTMLInputElement | null>(null)
+
+const handleImport = () => {
+  fileInput.value?.click()
+}
+
+const onFileSelected = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  
+  if (!file) return
+  
+  if (!file.name.endsWith('.zip')) {
+    message.error('请选择ZIP文件')
+    return
+  }
+  
+  try {
+    const zip = await JSZip.loadAsync(file)
+    let importedCount = 0
+    
+    // 遍历ZIP中的所有文件
+    for (const [path, zipEntry] of Object.entries(zip.files)) {
+      // 跳过文件夹
+      if (zipEntry.dir) continue
+      
+      // 读取文件内容
+      const content = await zipEntry.async('string')
+      
+      // 添加到项目
+      store.updateFile(path, content)
+      importedCount++
+    }
+    
+    if (importedCount > 0) {
+      message.success(`成功导入 ${importedCount} 个文件`)
+      // 如果有App.vue，设置为活动文件
+      if (files.value['App.vue']) {
+        store.setActiveFile('App.vue')
+      }
+    } else {
+      message.warning('ZIP文件中没有找到可导入的文件')
+    }
+  } catch (error) {
+    console.error('Import failed:', error)
+    message.error('导入失败：文件格式错误')
+  } finally {
+    // 清空input，允许重复选择同一文件
+    if (fileInput.value) {
+      fileInput.value.value = ''
+    }
+  }
+}
+
 const onDrop = (info: any) => {
   const dropKey = info.node.key as string
   const dragKey = info.dragNode.key as string
@@ -658,5 +724,44 @@ const onDrop = (info: any) => {
 
 .file-tree-content::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* 深色模式样式 */
+.dark-theme .file-tree-container {
+  background-color: #1f1f1f;
+  border-right-color: #303030;
+}
+.dark-theme .file-tree-header {
+  background: #2a2a2a;
+  border-bottom-color: #303030;
+}
+.dark-theme .header-title {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .action-btn {
+  color: rgba(255, 255, 255, 0.65);
+}
+.dark-theme .action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .file-tree-content {
+  background: #1f1f1f;
+}
+.dark-theme :deep(.vscode-tree) {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme :deep(.vscode-tree .ant-tree-node-content-wrapper) {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme :deep(.vscode-tree .ant-tree-node-content-wrapper:hover) {
+  background: rgba(255, 255, 255, 0.08);
+}
+.dark-theme :deep(.vscode-tree .ant-tree-node-selected) {
+  background: #094771 !important;
+  color: #fff;
+}
+.dark-theme :deep(.ant-tree-switcher) {
+  color: rgba(255, 255, 255, 0.65);
 }
 </style>

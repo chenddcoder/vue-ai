@@ -459,4 +459,23 @@ onMounted(loadData)
 .window-slide-enter-active, .window-slide-leave-active { transition: all 0.3s ease; }
 .window-slide-enter-from { opacity: 0; transform: translateY(20px); }
 .window-slide-leave-to { opacity: 0; transform: scale(0.9); }
+
+/* 深色模式样式 */
+.dark-theme .market-app-detail { background: #141414; }
+.dark-theme .content { background: #141414; }
+.dark-theme .app-preview { background: #1f1f1f; box-shadow: 0 2px 8px rgba(0,0,0,0.45); }
+.dark-theme .app-sidebar { color: rgba(255, 255, 255, 0.85); }
+.dark-theme .app-card { background: #1f1f1f; box-shadow: 0 2px 8px rgba(0,0,0,0.45); }
+.dark-theme .app-card h2 { color: rgba(255, 255, 255, 0.85); }
+.dark-theme .author { color: rgba(255, 255, 255, 0.65); }
+.dark-theme .stats { color: rgba(255, 255, 255, 0.65); }
+.dark-theme .app-description { background: #1f1f1f; box-shadow: 0 2px 8px rgba(0,0,0,0.45); }
+.dark-theme .app-description p { color: rgba(255, 255, 255, 0.85); }
+.dark-theme .comments-list { background: #1f1f1f; box-shadow: 0 2px 8px rgba(0,0,0,0.45); }
+.dark-theme .username { color: rgba(255, 255, 255, 0.85); }
+.dark-theme .time { color: rgba(255, 255, 255, 0.45); }
+.dark-theme .comment-content { color: rgba(255, 255, 255, 0.85); }
+.dark-theme .app-window { background: #1f1f1f; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+.dark-theme .app-window-header { background: linear-gradient(180deg, #2a2a2a 0%, #1f1f1f 100%); border-color: #303030; }
+.dark-theme .window-title { color: rgba(255, 255, 255, 0.85); }
 </style>

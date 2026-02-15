@@ -304,4 +304,24 @@ const handleGuestLogin = async () => {
 :deep(.ant-card-body) {
   padding: 24px 32px;
 }
+
+/* 深色模式样式 */
+.dark-theme .login-page {
+  background: linear-gradient(135deg, #141414 0%, #1f1f1f 100%);
+}
+.dark-theme .logo-section h1 {
+  color: rgba(255, 255, 255, 0.95);
+}
+.dark-theme .logo-section p {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .login-card {
+  background: #1f1f1f;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+.dark-theme .guest-tips {
+  background: rgba(82, 196, 26, 0.1);
+  border-color: rgba(82, 196, 26, 0.3);
+  color: #73d13d;
+}
 </style>

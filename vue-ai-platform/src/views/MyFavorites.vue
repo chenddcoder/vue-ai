@@ -739,4 +739,42 @@ onMounted(() => {
   opacity: 0;
   transform: scale(0.9);
 }
+
+/* 深色模式样式 */
+.dark-theme .content {
+  background: #141414;
+}
+.dark-theme .page-header h1 {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .page-header p {
+  color: rgba(255, 255, 255, 0.65);
+}
+.dark-theme .app-card {
+  background: #1f1f1f;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.45);
+}
+.dark-theme .app-card:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.65);
+}
+.dark-theme .app-name {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dark-theme .app-author {
+  color: rgba(255, 255, 255, 0.65);
+}
+.dark-theme .app-stats {
+  color: rgba(255, 255, 255, 0.45);
+}
+.dark-theme .app-window {
+  background: #1f1f1f;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+.dark-theme .app-window-header {
+  background: linear-gradient(180deg, #2a2a2a 0%, #1f1f1f 100%);
+  border-color: #303030;
+}
+.dark-theme .window-title {
+  color: rgba(255, 255, 255, 0.85);
+}
 </style>
