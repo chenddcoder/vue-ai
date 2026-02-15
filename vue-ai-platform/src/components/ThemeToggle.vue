@@ -36,9 +36,9 @@ import { h } from 'vue'
 
 const themeStore = useThemeStore()
 
-// 深色模式图标
+// 深色模式图标 - 使用更清晰的SVG
 const IconDark = () => h('svg', {
-  viewBox: '64 64 896 896',
+  viewBox: '0 0 24 24',
   focusable: 'false',
   'data-icon': 'moon',
   width: '1em',
@@ -47,7 +47,7 @@ const IconDark = () => h('svg', {
   'aria-hidden': 'true'
 }, [
   h('path', {
-    d: 'M489.5 106.4c-17.2 4.6-33.1 12.6-46.8 23.7-17.7 14.4-30.5 33.2-36.9 54.4-4.6 16-4.6 34.2 0 50.2 6.4 21.2 19.2 40 36.9 54.4 17.7 14.4 39.5 23.6 62.9 26.3 6.8.8 21.8.8 28.6 0 23.4-2.7 45.2-11.9 62.9-26.3 17.7-14.4 30.5-33.2 36.9-54.4 4.6-16 4.6-34.2 0-50.2-6.4-21.2-19.2-40-36.9-54.4-13.7-11.1-29.6-19.1-46.8-23.7-12.6-3.4-35-3.4-47.7.1zM512 288c35.3 0 64 28.7 64 64s-28.7 64-64 64-64-28.7-64-64 28.7-64 64-64z'
+    d: 'M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z'
   })
 ])
 
@@ -64,5 +64,34 @@ const handleThemeChange = ({ key }: { key: string }) => {
 .check-icon {
   margin-left: 8px;
   color: #1890ff;
+}
+
+/* 深色模式下的下拉菜单样式 */
+:deep(.dark-theme .ant-dropdown-menu) {
+  background: #1f1f1f !important;
+  border: 1px solid #434343;
+}
+
+:deep(.dark-theme .ant-dropdown-menu-item) {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+}
+
+:deep(.dark-theme .ant-dropdown-menu-item:hover) {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+:deep(.dark-theme .ant-dropdown-menu-item svg),
+:deep(.dark-theme .ant-dropdown-menu-item .anticon) {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+:deep(.dark-theme .ant-dropdown-menu-item-divider) {
+  background: #434343;
 }
 </style>

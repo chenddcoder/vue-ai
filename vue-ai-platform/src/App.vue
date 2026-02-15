@@ -152,14 +152,31 @@ html, body, #app {
 
 .dark-theme .ant-dropdown-menu {
   background: #1f1f1f;
+  border: 1px solid #434343;
 }
 
 .dark-theme .ant-dropdown-menu-item {
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
 }
 
 .dark-theme .ant-dropdown-menu-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dark-theme .ant-dropdown-menu-item .anticon,
+.dark-theme .ant-dropdown-menu-item svg {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.dark-theme .ant-dropdown-menu-item:hover .anticon,
+.dark-theme .ant-dropdown-menu-item:hover svg {
+  color: #fff;
+}
+
+.dark-theme .ant-dropdown-menu-item-divider {
+  background-color: #434343;
 }
 
 /* 表格样式 */
