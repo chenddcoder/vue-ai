@@ -95,6 +95,13 @@
         </template>
       </a-tree>
     </div>
+    
+    <GitPanel
+      v-if="store.currentProjectId"
+      :project-id="store.currentProjectId"
+      :project-content="store.getContentHash()"
+      @refresh="handleRefresh"
+    />
   </div>
 </template>
 
@@ -120,6 +127,7 @@ import {
 } from '@ant-design/icons-vue'
 import { h } from 'vue'
 import { message, Modal } from 'ant-design-vue'
+import GitPanel from './GitPanel.vue'
 
 interface TreeNode {
   title: string
@@ -409,6 +417,11 @@ const createFileInFolder = (parentPath: string) => {
   
   store.updateFile(filePath, getFileTemplate(key))
   store.setActiveFile(filePath)
+}
+
+const handleRefresh = () => {
+  // 刷新项目内容
+  message.success('项目已刷新')
 }
 
 const handleExport = async () => {

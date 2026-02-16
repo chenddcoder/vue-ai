@@ -141,6 +141,18 @@ public class InitDb {
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_commit_hash ON magic_sys_project_commit(commit_hash)");
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_branch_project_id ON magic_sys_project_branch(project_id)");
 
+        // Create magic_sys_project_remote table for remote repository management
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS magic_sys_project_remote (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "project_id INTEGER NOT NULL," +
+                "name TEXT NOT NULL," +
+                "url TEXT NOT NULL," +
+                "is_default INTEGER DEFAULT 0," +
+                "create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                "UNIQUE(project_id, name)," +
+                "FOREIGN KEY (project_id) REFERENCES magic_sys_project(id) ON DELETE CASCADE" +
+                ")");
+
         // Create default admin user if not exists
         try {
             Integer count = jdbcTemplate.queryForObject("SELECT count(*) FROM magic_sys_user WHERE username = 'admin'", Integer.class);

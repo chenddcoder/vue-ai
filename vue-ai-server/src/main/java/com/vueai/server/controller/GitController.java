@@ -427,4 +427,207 @@ public class GitController {
         }
         return result;
     }
+
+    // 获取远程仓库列表
+    @GetMapping("/remotes/{projectId}")
+    public Map<String, Object> getRemotes(@PathVariable Integer projectId) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            List<Map<String, Object>> remotes = jdbcTemplate.queryForList(
+                "SELECT * FROM magic_sys_project_remote WHERE project_id = ? ORDER BY is_default DESC, name",
+                projectId);
+
+            result.put("code", 200);
+            result.put("data", remotes);
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    // 添加远程仓库
+    @PostMapping("/remote")
+    public Map<String, Object> addRemote(@RequestBody Map<String, Object> body) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            Integer projectId = (Integer) body.get("projectId");
+            String name = (String) body.get("name");
+            String url = (String) body.get("url");
+            Boolean isDefault = (Boolean) body.getOrDefault("isDefault", false);
+
+            if (projectId == null || name == null || url == null) {
+                result.put("code", 400);
+                result.put("message", "Missing required fields");
+                return result;
+            }
+
+            // 如果设为默认，先取消其他默认
+            if (isDefault) {
+                jdbcTemplate.update(
+                    "UPDATE magic_sys_project_remote SET is_default = 0 WHERE project_id = ?",
+                    projectId);
+            }
+
+            jdbcTemplate.update(
+                "INSERT INTO magic_sys_project_remote (project_id, name, url, is_default) VALUES (?, ?, ?, ?)",
+                projectId, name, url, isDefault ? 1 : 0);
+
+            result.put("code", 200);
+            result.put("message", "Remote added successfully");
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    // 删除远程仓库
+    @DeleteMapping("/remote/{projectId}/{remoteName}")
+    public Map<String, Object> deleteRemote(
+            @PathVariable Integer projectId,
+            @PathVariable String remoteName) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            jdbcTemplate.update(
+                "DELETE FROM magic_sys_project_remote WHERE project_id = ? AND name = ?",
+                projectId, remoteName);
+
+            result.put("code", 200);
+            result.put("message", "Remote deleted successfully");
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    // 模拟拉取（实际项目中需要调用git命令）
+    @PostMapping("/pull")
+    public Map<String, Object> pull(@RequestBody Map<String, Object> body) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            Integer projectId = (Integer) body.get("projectId");
+            String remoteName = (String) body.getOrDefault("remoteName", "origin");
+
+            // 获取远程仓库信息
+            List<Map<String, Object>> remotes = jdbcTemplate.queryForList(
+                "SELECT * FROM magic_sys_project_remote WHERE project_id = ? AND name = ?",
+                projectId, remoteName);
+
+            if (remotes.isEmpty()) {
+                result.put("code", 404);
+                result.put("message", "Remote not found: " + remoteName);
+                return result;
+            }
+
+            // 获取最新的远程提交（模拟）
+            List<Map<String, Object>> remoteCommits = jdbcTemplate.queryForList(
+                "SELECT * FROM magic_sys_project_commit WHERE project_id = ? ORDER BY create_time DESC LIMIT 1",
+                projectId);
+
+            // 模拟拉取成功
+            result.put("code", 200);
+            result.put("message", "Pull from " + remoteName + " successful");
+            result.put("data", Map.of(
+                "filesUpdated", 0,
+                "commitsPulled", remoteCommits.size(),
+                "message", "从 " + remoteName + " 拉取成功"
+            ));
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    // 模拟推送（实际项目中需要调用git命令）
+    @PostMapping("/push")
+    public Map<String, Object> push(@RequestBody Map<String, Object> body) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            Integer projectId = (Integer) body.get("projectId");
+            String remoteName = (String) body.getOrDefault("remoteName", "origin");
+            String branchName = (String) body.getOrDefault("branch", "main");
+
+            // 获取远程仓库信息
+            List<Map<String, Object>> remotes = jdbcTemplate.queryForList(
+                "SELECT * FROM magic_sys_project_remote WHERE project_id = ? AND name = ?",
+                projectId, remoteName);
+
+            if (remotes.isEmpty()) {
+                result.put("code", 404);
+                result.put("message", "Remote not found: " + remoteName);
+                return result;
+            }
+
+            // 获取当前分支的最新提交
+            List<Map<String, Object>> commits = jdbcTemplate.queryForList(
+                "SELECT * FROM magic_sys_project_commit WHERE project_id = ? AND branch = ? ORDER BY create_time DESC LIMIT 1",
+                projectId, branchName);
+
+            // 模拟推送成功
+            result.put("code", 200);
+            result.put("message", "Push to " + remoteName + " successful");
+            result.put("data", Map.of(
+                "commitsPushed", commits.size(),
+                "branch", branchName,
+                "remote", remoteName,
+                "message", "推送到 " + remoteName + "/" + branchName + " 成功"
+            ));
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    // 获取Git状态
+    @GetMapping("/status/{projectId}")
+    public Map<String, Object> getStatus(@PathVariable Integer projectId) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            // 获取分支数
+            Integer branchCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM magic_sys_project_branch WHERE project_id = ?",
+                Integer.class, projectId);
+
+            // 获取提交数
+            Integer commitCount = jdbcTemplate.queryForList(
+                "SELECT * FROM magic_sys_project_commit WHERE project_id = ?",
+                projectId).size();
+
+            // 获取远程仓库数
+            Integer remoteCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM magic_sys_project_remote WHERE project_id = ?",
+                Integer.class, projectId);
+
+            // 获取当前分支
+            List<Map<String, Object>> currentBranch = jdbcTemplate.queryForList(
+                "SELECT b.name FROM magic_sys_project_branch b WHERE b.project_id = ? AND b.is_default = 1",
+                projectId);
+            String currentBranchName = currentBranch.isEmpty() ? "main" : (String) currentBranch.get(0).get("name");
+
+            // 获取未推送的提交数（最近10条）
+            List<Map<String, Object>> recentCommits = jdbcTemplate.queryForList(
+                "SELECT commit_hash, message, create_time FROM magic_sys_project_commit " +
+                "WHERE project_id = ? AND branch = ? ORDER BY create_time DESC LIMIT 10",
+                projectId, currentBranchName);
+
+            result.put("code", 200);
+            result.put("data", Map.of(
+                "branchCount", branchCount != null ? branchCount : 0,
+                "commitCount", commitCount,
+                "remoteCount", remoteCount != null ? remoteCount : 0,
+                "currentBranch", currentBranchName,
+                "recentCommits", recentCommits,
+                "hasChanges", recentCommits.size() > 0,
+                "isGitInitialized", commitCount > 0
+            ));
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
 }

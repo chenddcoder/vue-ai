@@ -64,3 +64,45 @@ export const diffCommits = (data: {
 export const initGit = (projectId: number) => {
   return request.post('/api/git/init/' + projectId)
 }
+
+// 获取远程仓库列表
+export const getRemotes = (projectId: number) => {
+  return request.get('/api/git/remotes/' + projectId)
+}
+
+// 添加远程仓库
+export const addRemote = (data: {
+  projectId: number
+  name: string
+  url: string
+  isDefault?: boolean
+}) => {
+  return request.post('/api/git/remote', data)
+}
+
+// 删除远程仓库
+export const deleteRemote = (projectId: number, remoteName: string) => {
+  return request.delete('/api/git/remote/' + projectId + '/' + remoteName)
+}
+
+// 拉取
+export const pullRemote = (data: {
+  projectId: number
+  remoteName?: string
+}) => {
+  return request.post('/api/git/pull', data)
+}
+
+// 推送
+export const pushRemote = (data: {
+  projectId: number
+  remoteName?: string
+  branch?: string
+}) => {
+  return request.post('/api/git/push', data)
+}
+
+// 获取Git状态
+export const getGitStatus = (projectId: number) => {
+  return request.get('/api/git/status/' + projectId)
+}
