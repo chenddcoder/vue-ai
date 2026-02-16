@@ -202,3 +202,7 @@ export const testAIConfig = (config: any, testPrompt?: string) => {
 export const getAIProviders = () => {
   return request.get<ApiResponse>('/magic/ai/providers')
 }
+
+// ==================== Git管理 API ====================
+
+export * from './git'

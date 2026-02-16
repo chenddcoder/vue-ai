@@ -80,6 +80,10 @@ h1 { color: red; }
     return getContentHash() !== lastSavedContent
   }
 
+  function markAsSaved() {
+    lastSavedContent = getContentHash()
+  }
+
   return { 
     files, 
     activeFile, 
@@ -99,6 +103,7 @@ h1 { color: red; }
     autoSaveEnabled,
     autoSaveDelay,
     getContentHash,
-    hasUnsavedChanges
+    hasUnsavedChanges,
+    markAsSaved
   }
 })

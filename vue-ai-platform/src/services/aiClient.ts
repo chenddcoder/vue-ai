@@ -83,9 +83,11 @@ export class AIClient {
     if (request.files && Object.keys(request.files).length > 0) {
       const structure = this.analyzeStructure(request.files)
       const dependencies = this.getDependencies(request.files)
+      const keyFileContents = this.getKeyFileContents(request.files)
       
       userContent = 'Project Directory Structure:\n' + structure + '\n\n' +
         'Package.json Dependencies:\n' + dependencies + '\n\n' +
+        (keyFileContents ? 'Key Files Content:\n' + keyFileContents + '\n\n' : '') +
         'Development Requirement:\n' + request.requirement
     }
 
@@ -93,6 +95,27 @@ export class AIClient {
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userContent }
     ]
+  }
+
+  private getKeyFileContents(files: Record<string, string>): string {
+    const contents: string[] = []
+    const maxCharsPerFile = 2000
+    const maxTotalChars = 8000
+    
+    let totalChars = 0
+    
+    for (const [path, content] of Object.entries(files)) {
+      if (totalChars >= maxTotalChars) break
+      
+      const truncatedContent = content.length > maxCharsPerFile 
+        ? content.substring(0, maxCharsPerFile) + '\n... (truncated)'
+        : content
+      
+      contents.push(`\n--- ${path} ---\n${truncatedContent}`)
+      totalChars += truncatedContent.length + path.length + 20
+    }
+    
+    return contents.join('')
   }
 
   private analyzeStructure(files: Record<string, string>): string {
@@ -159,18 +182,18 @@ export class AIClient {
     const apiKey = cfg.apiKey
     const modelId = this.config.modelId
 
+    const requestBody: any = {
+      model: modelId,
+      messages
+    }
+
     const response = await fetch(baseUrl + '/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + apiKey
       },
-      body: JSON.stringify({
-        model: modelId,
-        messages,
-        max_tokens: cfg.maxTokens || 4096,
-        temperature: cfg.temperature || 0.7
-      })
+      body: JSON.stringify(requestBody)
     })
 
     if (!response.ok) {
@@ -201,8 +224,7 @@ export class AIClient {
       },
       body: JSON.stringify({
         model: modelId,
-        messages: userMessages,
-        max_tokens: cfg.maxTokens || 4096
+        messages: userMessages
       })
     })
 
@@ -236,9 +258,7 @@ export class AIClient {
       },
       body: JSON.stringify({
         model: modelId,
-        messages,
-        max_tokens: cfg.maxTokens || 4096,
-        temperature: cfg.temperature || 0.7
+        messages
       })
     })
 
@@ -266,9 +286,7 @@ export class AIClient {
       },
       body: JSON.stringify({
         model: modelId,
-        messages,
-        max_tokens: cfg.maxTokens || 4096,
-        temperature: cfg.temperature || 0.7
+        messages
       })
     })
 

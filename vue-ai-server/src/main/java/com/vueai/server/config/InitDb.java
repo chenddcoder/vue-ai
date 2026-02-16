@@ -108,6 +108,39 @@ public class InitDb {
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_ai_config_user_id ON magic_sys_ai_config(user_id)");
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_ai_config_active ON magic_sys_ai_config(user_id, is_active)");
 
+        // Create magic_sys_project_commit table for Git-like version control
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS magic_sys_project_commit (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "project_id INTEGER NOT NULL," +
+                "commit_hash TEXT NOT NULL UNIQUE," +
+                "parent_hash TEXT," +
+                "author_id INTEGER," +
+                "author_name TEXT," +
+                "message TEXT NOT NULL," +
+                "content TEXT NOT NULL," +
+                "branch TEXT DEFAULT 'main'," +
+                "create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                "FOREIGN KEY (project_id) REFERENCES magic_sys_project(id) ON DELETE CASCADE" +
+                ")");
+
+        // Create magic_sys_project_branch table for branch management
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS magic_sys_project_branch (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "project_id INTEGER NOT NULL," +
+                "name TEXT NOT NULL," +
+                "current_commit_hash TEXT," +
+                "is_default INTEGER DEFAULT 0," +
+                "create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                "update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                "UNIQUE(project_id, name)," +
+                "FOREIGN KEY (project_id) REFERENCES magic_sys_project(id) ON DELETE CASCADE" +
+                ")");
+
+        // Create indexes for commit and branch tables
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_commit_project_id ON magic_sys_project_commit(project_id)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_commit_hash ON magic_sys_project_commit(commit_hash)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_branch_project_id ON magic_sys_project_branch(project_id)");
+
         // Create default admin user if not exists
         try {
             Integer count = jdbcTemplate.queryForObject("SELECT count(*) FROM magic_sys_user WHERE username = 'admin'", Integer.class);

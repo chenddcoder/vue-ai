@@ -154,7 +154,8 @@ import {
   DownOutlined,
   AppstoreOutlined,
   ClockCircleOutlined,
-  CheckCircleOutlined
+  CheckCircleOutlined,
+  RobotOutlined
 } from '@ant-design/icons-vue'
 import FileTree from '@/components/FileTree.vue'
 import MonacoEditor from '@/components/editor/MonacoEditor.vue'
@@ -324,6 +325,7 @@ const executeSave = async () => {
       if (savedProjectId) {
         projectStore.setCurrentProjectId(savedProjectId)
         projectStore.setProjectName(res.data.name)
+        projectStore.markAsSaved()
         // If we were on 'new' route, replace with actual ID
         if (route.params.id === 'new') {
           router.replace(`/project/${savedProjectId}`)
