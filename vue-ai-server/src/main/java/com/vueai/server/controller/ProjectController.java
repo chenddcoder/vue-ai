@@ -67,13 +67,19 @@ public class ProjectController {
                 Integer generatedId = jdbcTemplate.queryForObject("SELECT last_insert_rowid()", Integer.class);
                 result.put("code", 200);
                 result.put("message", "Saved successfully");
-                result.put("data", Map.of("id", generatedId, "name", name));
+                Map<String, Object> data = new HashMap<String, Object>();
+                data.put("id", generatedId);
+                data.put("name", name);
+                result.put("data", data);
             } else {
                 jdbcTemplate.update("UPDATE magic_sys_project SET name = ?, description = ?, content = ? WHERE id = ?",
                         name, description, content, id);
                 result.put("code", 200);
                 result.put("message", "Updated successfully");
-                result.put("data", Map.of("id", id, "name", name));
+                Map<String, Object> data = new HashMap<String, Object>();
+                data.put("id", id);
+                data.put("name", name);
+                result.put("data", data);
             }
         } catch (Exception e) {
             result.put("code", 500);

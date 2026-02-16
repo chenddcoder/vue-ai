@@ -409,26 +409,6 @@ const handleCommit = async () => {
   }
 }
 
-const handlePull = async () => {
-  pulling.value = true
-  try {
-    const res: any = await pullRemote({
-      projectId: props.projectId,
-      remoteName: remotes.value.find(r => r.is_default)?.name || 'origin'
-    })
-    if (res.code === 200) {
-      message.success(res.data.message || '拉取成功')
-      loadStatus()
-    } else {
-      message.warning(res.message || '拉取失败')
-    }
-  } catch (error: any) {
-    message.error('拉取失败: ' + error.message)
-  } finally {
-    pulling.value = false
-  }
-}
-
 const handlePush = async () => {
   if (remotes.value.length === 0) {
     message.warning('请先添加远程仓库')

@@ -142,7 +142,9 @@ public class GitController {
 
             result.put("code", 200);
             result.put("message", "Commit created successfully");
-            result.put("data", Map.of("commitHash", commitHash));
+            Map<String, Object> data = new HashMap<String, Object>();
+            data.put("commitHash", commitHash);
+            result.put("data", data);
         } catch (Exception e) {
             result.put("code", 500);
             result.put("message", e.getMessage());
@@ -315,7 +317,9 @@ public class GitController {
 
             result.put("code", 200);
             result.put("message", "Checkout successful");
-            result.put("data", Map.of("content", content));
+            Map<String, Object> data = new HashMap<String, Object>();
+            data.put("content", content);
+            result.put("data", data);
         } catch (Exception e) {
             result.put("code", 500);
             result.put("message", e.getMessage());
@@ -353,10 +357,10 @@ public class GitController {
             }
 
             result.put("code", 200);
-            result.put("data", Map.of(
-                "from", fromCommit.get(0),
-                "to", toCommit.get(0)
-            ));
+            Map<String, Object> data = new HashMap<String, Object>();
+            data.put("from", fromCommit.get(0));
+            data.put("to", toCommit.get(0));
+            result.put("data", data);
         } catch (Exception e) {
             result.put("code", 500);
             result.put("message", e.getMessage());
@@ -420,7 +424,9 @@ public class GitController {
 
             result.put("code", 200);
             result.put("message", "Git initialized successfully");
-            result.put("data", Map.of("commitHash", commitHash));
+            Map<String, Object> data = new HashMap<String, Object>();
+            data.put("commitHash", commitHash);
+            result.put("data", data);
         } catch (Exception e) {
             result.put("code", 500);
             result.put("message", e.getMessage());
@@ -529,11 +535,11 @@ public class GitController {
             // 模拟拉取成功
             result.put("code", 200);
             result.put("message", "Pull from " + remoteName + " successful");
-            result.put("data", Map.of(
-                "filesUpdated", 0,
-                "commitsPulled", remoteCommits.size(),
-                "message", "从 " + remoteName + " 拉取成功"
-            ));
+            Map<String, Object> data = new HashMap<String, Object>();
+            data.put("filesUpdated", 0);
+            data.put("commitsPulled", remoteCommits.size());
+            data.put("message", "从 " + remoteName + " 拉取成功");
+            result.put("data", data);
         } catch (Exception e) {
             result.put("code", 500);
             result.put("message", e.getMessage());
@@ -569,12 +575,12 @@ public class GitController {
             // 模拟推送成功
             result.put("code", 200);
             result.put("message", "Push to " + remoteName + " successful");
-            result.put("data", Map.of(
-                "commitsPushed", commits.size(),
-                "branch", branchName,
-                "remote", remoteName,
-                "message", "推送到 " + remoteName + "/" + branchName + " 成功"
-            ));
+            Map<String, Object> data = new HashMap<String, Object>();
+            data.put("commitsPushed", commits.size());
+            data.put("branch", branchName);
+            data.put("remote", remoteName);
+            data.put("message", "推送到 " + remoteName + "/" + branchName + " 成功");
+            result.put("data", data);
         } catch (Exception e) {
             result.put("code", 500);
             result.put("message", e.getMessage());
@@ -615,15 +621,15 @@ public class GitController {
                 projectId, currentBranchName);
 
             result.put("code", 200);
-            result.put("data", Map.of(
-                "branchCount", branchCount != null ? branchCount : 0,
-                "commitCount", commitCount,
-                "remoteCount", remoteCount != null ? remoteCount : 0,
-                "currentBranch", currentBranchName,
-                "recentCommits", recentCommits,
-                "hasChanges", recentCommits.size() > 0,
-                "isGitInitialized", commitCount > 0
-            ));
+            Map<String, Object> data = new HashMap<String, Object>();
+            data.put("branchCount", branchCount != null ? branchCount : 0);
+            data.put("commitCount", commitCount);
+            data.put("remoteCount", remoteCount != null ? remoteCount : 0);
+            data.put("currentBranch", currentBranchName);
+            data.put("recentCommits", recentCommits);
+            data.put("hasChanges", recentCommits.size() > 0);
+            data.put("isGitInitialized", commitCount > 0);
+            result.put("data", data);
         } catch (Exception e) {
             result.put("code", 500);
             result.put("message", e.getMessage());
