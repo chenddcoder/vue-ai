@@ -1,12 +1,14 @@
 <template>
-  <div class="ai-config-page">
-    <div class="page-header">
-      <h2>AI配置管理</h2>
-      <a-button type="primary" @click="showAddModal = true">
-        <template #icon><PlusOutlined /></template>
-        添加配置
-      </a-button>
-    </div>
+  <a-layout style="min-height: 100vh">
+    <AppHeader />
+    <a-layout-content class="ai-config-page">
+      <div class="page-header">
+        <h2>AI配置管理</h2>
+        <a-button type="primary" @click="showAddModal = true">
+          <template #icon><PlusOutlined /></template>
+          添加配置
+        </a-button>
+      </div>
 
     <div class="config-list">
       <a-spin :spinning="loading">
@@ -106,13 +108,15 @@
         <a-spin tip="正在测试配置..." />
       </div>
     </a-modal>
-  </div>
+  </a-layout-content>
+  </a-layout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { PlusOutlined, MoreOutlined } from '@ant-design/icons-vue'
+import AppHeader from '@/components/AppHeader.vue'
 import { useAIStore } from '@/stores/ai'
 import { useUserStore } from '@/stores/user'
 import { AI_PROVIDERS } from '@/types/ai'
@@ -260,7 +264,6 @@ onMounted(() => {
 .ai-config-page {
   padding: 24px;
   background: #fff;
-  min-height: 100vh;
 }
 
 .page-header {

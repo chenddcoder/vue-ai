@@ -1,22 +1,8 @@
 <template>
   <div class="my-favorites-page">
     <a-layout style="min-height: 100vh">
-      <a-layout-header class="header">
-        <div class="header-left">
-          <div class="logo" @click="goHome">Vue AI Platform</div>
-          <a-menu theme="dark" mode="horizontal" :selectedKeys="['favorites']" :style="{ lineHeight: '64px' }">
-            <a-menu-item key="editor" @click="goHome">编辑器</a-menu-item>
-            <a-menu-item key="market" @click="goMarket">应用市场</a-menu-item>
-            <a-menu-item key="my-apps" @click="goMyApps">我的应用</a-menu-item>
-            <a-menu-item key="favorites">我的收藏</a-menu-item>
-          </a-menu>
-        </div>
-        
-        <div class="header-right">
-          <UserAvatar />
-        </div>
-      </a-layout-header>
-
+      <AppHeader />
+      
       <a-layout-content class="content">
         <div class="page-header">
           <h1>我的收藏</h1>
@@ -137,14 +123,7 @@
 import { ref, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
-import {
-  AppstoreOutlined,
-  FullscreenOutlined,
-  FullscreenExitOutlined,
-  EyeOutlined,
-  LikeOutlined,
-  StarOutlined
-} from '@ant-design/icons-vue'
+import AppHeader from '@/components/AppHeader.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import { useUserStore } from '@/stores/user'
 import { getUserFavorites, toggleAppFavorite, getMarketAppDetail } from '@/api'
@@ -185,9 +164,6 @@ const selectedAppId = ref<number | undefined>(undefined)
 
 let zIndexCounter = 1000
 
-const goHome = () => router.push('/project/new')
-const goMarket = () => router.push('/market')
-const goMyApps = () => router.push('/my-apps')
 const goLogin = () => {
   userStore.logout()
   router.push('/login')

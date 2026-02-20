@@ -53,6 +53,24 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/templates',
+      name: 'templates',
+      component: () => import('@/views/Templates.vue'),
+      meta: { requiresAuth: false }
+    },
+    {
+      path: '/snippets',
+      name: 'snippets',
+      component: () => import('@/views/Snippets.vue'),
+      meta: { requiresAuth: false }
+    },
+    {
+      path: '/dashboard',
+      name: 'dashboard',
+      component: () => import('@/views/Dashboard.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/profile/:userId?',
       name: 'profile',
       component: () => import('@/views/UserProfile.vue'),

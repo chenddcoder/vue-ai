@@ -1,22 +1,8 @@
 <template>
   <div class="market-launchpad">
     <a-layout style="min-height: 100vh">
-      <a-layout-header class="header">
-        <div class="header-left">
-          <div class="logo" @click="goHome">Vue AI Platform</div>
-          <a-menu theme="dark" mode="horizontal" :selectedKeys="['market']" :style="{ lineHeight: '64px' }">
-            <a-menu-item key="editor" @click="goHome">编辑器</a-menu-item>
-            <a-menu-item key="market">应用市场</a-menu-item>
-            <a-menu-item key="my-apps" @click="goMyApps" v-if="userStore.isLoggedIn">我的应用</a-menu-item>
-            <a-menu-item key="favorites" @click="goFavorites" v-if="userStore.isLoggedIn">我的收藏</a-menu-item>
-          </a-menu>
-        </div>
-        
-        <div class="header-right">
-          <UserAvatar />
-        </div>
-      </a-layout-header>
-
+      <AppHeader />
+      
       <a-layout-content class="launchpad-content">
         <div class="market-header">
           <h1>应用市场</h1>
@@ -43,7 +29,54 @@
               <a-radio-button value="展示">展示</a-radio-button>
               <a-radio-button value="其他">其他</a-radio-button>
             </a-radio-group>
+            <a-divider type="vertical" />
+            <span>排序：</span>
+            <a-select v-model:value="selectedSort" style="width: 120px" @change="handleSortChange">
+              <a-select-option value="latest">最新</a-select-option>
+              <a-select-option value="popular">最热</a-select-option>
+              <a-select-option value="trending">趋势</a-select-option>
+            </a-select>
           </a-space>
+        </div>
+
+        <div class="hot-tags" v-if="hotTags.length > 0 && !searchKeyword.value">
+          <span class="hot-label">热门：</span>
+          <a-tag 
+            v-for="tag in hotTags" 
+            :key="tag" 
+            :color="selectedCategory === tag ? 'blue' : 'default'"
+            class="hot-tag"
+            @click="selectHotTag(tag)"
+          >
+            {{ tag }}
+          </a-tag>
+        </div>
+
+        <div class="recommend-section" v-if="recommendedApps.length > 0 && !searchKeyword.value && !selectedCategory.value">
+          <div class="recommend-header">
+            <h3><StarOutlined /> 为你推荐</h3>
+          </div>
+          <div class="recommend-grid">
+            <div
+              v-for="app in recommendedApps"
+              :key="app.id"
+              class="app-item"
+              @click="launchApp(app)"
+            >
+              <div class="app-icon">
+                <img v-if="app.thumbnail" :src="app.thumbnail" :alt="app.name" />
+                <div v-else class="default-icon">
+                  <AppstoreOutlined />
+                </div>
+              </div>
+              <div class="app-info">
+                <div class="app-name">{{ app.name }}</div>
+                <div class="app-stats">
+                  <span><LikeOutlined /> {{ app.likes || 0 }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <a-spin :spinning="loading">
@@ -169,19 +202,10 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import {
-  AppstoreOutlined,
-  MoreOutlined,
-  FullscreenOutlined,
-  FullscreenExitOutlined,
-  ExportOutlined,
-  DeleteOutlined,
-  EyeOutlined,
-  LikeOutlined
-} from '@ant-design/icons-vue'
-import UserAvatar from '@/components/UserAvatar.vue'
+import { AppstoreOutlined, MoreOutlined, StarOutlined, EyeOutlined, LikeOutlined, FullscreenOutlined, FullscreenExitOutlined, ExportOutlined, LeftOutlined } from '@ant-design/icons-vue'
+import AppHeader from '@/components/AppHeader.vue'
 import { useUserStore } from '@/stores/user'
-import { getMarketApps, getMarketAppDetail } from '@/api'
+import { getMarketApps, getMarketAppDetail, getHotSearch, getRecommendedApps } from '@/api'
 import { AppDetailModal } from '@/components/community'
 
 interface WindowState {
@@ -203,6 +227,9 @@ const apps = ref<any[]>([])
 const loading = ref(false)
 const searchKeyword = ref('')
 const selectedCategory = ref('')
+const selectedSort = ref('latest')
+const hotTags = ref<string[]>([])
+const recommendedApps = ref<any[]>([])
 const hoveredAppId = ref<number | null>(null)
 const hoveredDockId = ref<number | null>(null)
 const windows = ref<WindowState[]>([])
@@ -389,20 +416,49 @@ const generateAppHtml = (content: any, name: string) => {
   `
 }
 
-const goHome = () => {
-  router.push('/project/new')
+const handleSearch = () => {
+  loadApps()
 }
 
-const goMyApps = () => {
-  router.push('/my-apps')
+const handleCategoryChange = () => {
+  loadApps()
 }
 
-const goFavorites = () => {
-  router.push('/favorites')
+const handleSortChange = () => {
+  loadApps()
 }
 
-const handleSearch = () => {}
-const handleCategoryChange = () => {}
+const selectHotTag = (tag: string) => {
+  if (selectedCategory.value === tag) {
+    selectedCategory.value = ''
+  } else {
+    selectedCategory.value = tag
+  }
+  loadApps()
+}
+
+const loadHotSearch = async () => {
+  try {
+    const res: any = await getHotSearch()
+    if (res.code === 200 && res.data?.hotTags) {
+      hotTags.value = res.data.hotTags
+    }
+  } catch (e) {
+    console.error('加载热门搜索失败', e)
+  }
+}
+
+const loadRecommendedApps = async () => {
+  try {
+    const userId = userStore.currentUser?.id
+    const res: any = await getRecommendedApps({ userId, limit: 6 })
+    if (res.code === 200) {
+      recommendedApps.value = res.data || []
+    }
+  } catch (e) {
+    console.error('加载推荐应用失败', e)
+  }
+}
 
 const openAppDetail = (app: any) => {
   selectedAppId.value = app.id
@@ -588,6 +644,7 @@ const loadApps = async () => {
     const res: any = await getMarketApps({
       keyword: searchKeyword.value,
       category: selectedCategory.value,
+      sort: selectedSort.value,
       page: 1,
       pageSize: 100
     })
@@ -606,6 +663,8 @@ const loadApps = async () => {
 
 onMounted(() => {
   loadApps()
+  loadHotSearch()
+  loadRecommendedApps()
   document.addEventListener('keydown', handleKeydown)
 })
 </script>
@@ -675,8 +734,45 @@ onMounted(() => {
 }
 
 .filter-section {
-  margin-bottom: 32px;
+  margin-bottom: 16px;
   text-align: center;
+}
+
+.hot-tags {
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.hot-label {
+  font-weight: 500;
+  margin-right: 8px;
+}
+
+.hot-tag {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.hot-tag:hover {
+  transform: scale(1.05);
+}
+
+.recommend-section {
+  margin-bottom: 32px;
+}
+
+.recommend-header h3 {
+  margin-bottom: 16px;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recommend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
 }
 
 .apps-grid {

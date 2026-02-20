@@ -54,8 +54,28 @@ export const renameProject = (id: number, name: string) => {
 }
 
 // 应用市场相关
-export const getMarketApps = (params?: { keyword?: string; category?: string; page?: number; pageSize?: number }) => {
+export const getMarketApps = (params?: { keyword?: string; category?: string; sort?: string; page?: number; pageSize?: number }) => {
   return request.get<ApiResponse>('/api/market/apps', { params })
+}
+
+export const getHotSearch = () => {
+  return request.get<ApiResponse>('/api/market/search/hot')
+}
+
+export const getRecommendedApps = (params?: { userId?: number; limit?: number }) => {
+  return request.get<ApiResponse>('/api/market/recommend', { params })
+}
+
+export const getTemplates = (params?: { type?: string; category?: string; page?: number; pageSize?: number }) => {
+  return request.get<ApiResponse>('/api/market/templates', { params })
+}
+
+export const getTemplateDetail = (id: number) => {
+  return request.get<ApiResponse>(`/api/market/templates/${id}`)
+}
+
+export const useTemplate = (id: number, data: { userId?: number; projectName?: string }) => {
+  return request.post<ApiResponse>(`/api/market/templates/${id}/use`, data)
 }
 
 export const getMarketAppDetail = (id: number) => {
@@ -201,6 +221,42 @@ export const testAIConfig = (config: any, testPrompt?: string) => {
 
 export const getAIProviders = () => {
   return request.get<ApiResponse>('/magic/ai/providers')
+}
+
+// ==================== 分享功能 API ====================
+
+export const shareApp = (data: { appId: number; shareType: string; title?: string }) => {
+  return request.post<ApiResponse>('/api/share/app', data)
+}
+
+export const getShareLink = (appId: number) => {
+  return request.get<ApiResponse>(`/api/share/link/${appId}`)
+}
+
+export const recordAppShare = (appId: number, shareType: string) => {
+  return request.post<ApiResponse>(`/api/share/record/${appId}`, { shareType })
+}
+
+// ==================== 通知功能 API ====================
+
+export const getNotifications = (userId: number, page = 1, pageSize = 20) => {
+  return request.get<ApiResponse>('/api/notification/list', { params: { userId, page, pageSize } })
+}
+
+export const markNotificationRead = (notificationId: number) => {
+  return request.put<ApiResponse>(`/api/notification/read/${notificationId}`)
+}
+
+export const markAllNotificationsRead = (userId: number) => {
+  return request.put<ApiResponse>('/api/notification/read-all', { userId })
+}
+
+export const getUnreadNotificationCount = (userId: number) => {
+  return request.get<ApiResponse>('/api/notification/unread-count', { params: { userId } })
+}
+
+export const deleteNotification = (notificationId: number) => {
+  return request.delete<ApiResponse>(`/api/notification/${notificationId}`)
 }
 
 // ==================== Git管理 API ====================

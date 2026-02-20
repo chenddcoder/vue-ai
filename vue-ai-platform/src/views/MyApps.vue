@@ -1,20 +1,7 @@
 <template>
   <a-layout style="min-height: 100vh">
-    <a-layout-header class="header">
-      <div class="header-left">
-        <div class="logo" @click="goHome">Vue AI Platform</div>
-        <a-menu theme="dark" mode="horizontal" :selectedKeys="['my-apps']" :style="{ lineHeight: '64px' }">
-          <a-menu-item key="editor" @click="goHome">编辑器</a-menu-item>
-          <a-menu-item key="market" @click="goMarket">应用市场</a-menu-item>
-          <a-menu-item key="my-apps">我的应用</a-menu-item>
-        </a-menu>
-      </div>
-      
-      <div class="header-right">
-        <UserAvatar />
-      </div>
-    </a-layout-header>
-
+    <AppHeader />
+    
     <a-layout-content class="content">
       <div class="page-header">
         <h1>我的应用</h1>
@@ -232,20 +219,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
-import { 
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  CloudUploadOutlined,
-  CloudDownloadOutlined,
-  EyeOutlined,
-  LikeOutlined,
-  FontSizeOutlined,
-  HistoryOutlined,
-  TagOutlined,
-  ClockCircleOutlined,
-  UndoOutlined
-} from '@ant-design/icons-vue'
+import AppHeader from '@/components/AppHeader.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import { useUserStore } from '@/stores/user'
 import { useProjectStore } from '@/stores/project'
@@ -301,14 +275,6 @@ const nextMajorVersion = computed(() => {
   const v = parseVersion(publishForm.value.currentVersion)
   return `${v.major + 1}.0.0`
 })
-
-const goHome = () => {
-  router.push('/project/new')
-}
-
-const goMarket = () => {
-  router.push('/market')
-}
 
 const loadProjects = async () => {
   loading.value = true

@@ -153,6 +153,33 @@ public class InitDb {
                 "FOREIGN KEY (project_id) REFERENCES magic_sys_project(id) ON DELETE CASCADE" +
                 ")");
 
+        // Create magic_sys_market_app_share table for share tracking
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS magic_sys_market_app_share (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "app_id INTEGER NOT NULL," +
+                "share_type TEXT DEFAULT 'link'," +
+                "share_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                "FOREIGN KEY (app_id) REFERENCES magic_sys_market_app(id) ON DELETE CASCADE" +
+                ")");
+
+        // Create magic_sys_notification table for user notifications
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS magic_sys_notification (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "user_id INTEGER NOT NULL," +
+                "type TEXT NOT NULL," +
+                "title TEXT NOT NULL," +
+                "content TEXT," +
+                "related_id INTEGER," +
+                "is_read INTEGER DEFAULT 0," +
+                "create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                "read_time TIMESTAMP," +
+                "FOREIGN KEY (user_id) REFERENCES magic_sys_user(id) ON DELETE CASCADE" +
+                ")");
+
+        // Create index for notifications
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_notification_user_id ON magic_sys_notification(user_id)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_notification_is_read ON magic_sys_notification(user_id, is_read)");
+
         // Create default admin user if not exists
         try {
             Integer count = jdbcTemplate.queryForObject("SELECT count(*) FROM magic_sys_user WHERE username = 'admin'", Integer.class);

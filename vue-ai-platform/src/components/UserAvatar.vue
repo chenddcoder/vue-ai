@@ -14,20 +14,49 @@
           <UserOutlined />
           个人中心
         </a-menu-item>
-        <a-menu-item @click="showAvatarModal" v-if="!userStore.isGuest">
-          <UserOutlined />
-          更换头像
+        <a-menu-item @click="goMyApps" v-if="userStore.isLoggedIn">
+          <AppstoreOutlined />
+          我的应用
         </a-menu-item>
-        <a-menu-divider v-if="!userStore.isGuest" />
+        <a-menu-item @click="goFavorites" v-if="userStore.isLoggedIn">
+          <HeartOutlined />
+          我的收藏
+        </a-menu-item>
         <a-menu-item @click="goAIConfig" v-if="!userStore.isGuest">
           <RobotOutlined />
           AI配置
         </a-menu-item>
+        <a-menu-divider v-if="!userStore.isGuest" />
+        <a-menu-item @click="showAvatarModal" v-if="!userStore.isGuest">
+          <UserOutlined />
+          更换头像
+        </a-menu-item>
+        <a-menu-divider />
+        <a-menu-item @click="goEditor" v-if="userStore.isLoggedIn">
+          <EditOutlined />
+          打开编辑器
+        </a-menu-item>
+        <a-menu-item @click="goMarket">
+          <AppstoreOutlined />
+          应用市场
+        </a-menu-item>
+        <a-menu-item @click="goTemplates">
+          <FileOutlined />
+          模板市场
+        </a-menu-item>
+        <a-menu-item @click="goSnippets">
+          <CodeOutlined />
+          代码片段库
+        </a-menu-item>
+        <a-menu-item @click="goDashboard" v-if="userStore.isLoggedIn">
+          <DashboardOutlined />
+          数据仪表盘
+        </a-menu-item>
+        <a-menu-divider v-if="userStore.isGuest" />
         <a-menu-item v-if="userStore.isGuest" @click="goLogin">
           <LoginOutlined />
           登录/注册
         </a-menu-item>
-        <a-menu-divider v-if="userStore.isGuest" />
         <a-menu-item @click="logout">
           <LogoutOutlined />
           退出
@@ -65,7 +94,13 @@ import {
   DownOutlined,
   LogoutOutlined,
   LoginOutlined,
-  RobotOutlined
+  RobotOutlined,
+  AppstoreOutlined,
+  HeartOutlined,
+  EditOutlined,
+  FileOutlined,
+  CodeOutlined,
+  DashboardOutlined
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { updateUserAvatar } from '@/api'
@@ -86,6 +121,34 @@ const goToProfile = () => {
 
 const goAIConfig = () => {
   router.push('/ai-config')
+}
+
+const goMyApps = () => {
+  router.push('/my-apps')
+}
+
+const goFavorites = () => {
+  router.push('/favorites')
+}
+
+const goEditor = () => {
+  router.push('/project/new')
+}
+
+const goMarket = () => {
+  router.push('/market')
+}
+
+const goTemplates = () => {
+  router.push('/templates')
+}
+
+const goSnippets = () => {
+  router.push('/snippets')
+}
+
+const goDashboard = () => {
+  router.push('/dashboard')
 }
 
 const goLogin = () => {

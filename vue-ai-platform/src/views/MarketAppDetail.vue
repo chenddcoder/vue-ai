@@ -58,6 +58,9 @@
                   <LikeOutlined :style="isLiked ? { color: '#1890ff' } : {}" />
                   {{ isLiked ? '已赞' : '点赞' }}
                 </a-button>
+                <a-button block @click="showShareModal">
+                  <ShareAltOutlined /> 分享
+                </a-button>
               </a-space>
             </div>
 
@@ -126,6 +129,66 @@
         </div>
       </div>
     </TransitionGroup>
+
+    <a-modal
+      v-model:open="shareModalVisible"
+      title="分享应用"
+      :footer="null"
+      :width="500"
+    >
+      <div class="share-modal-content">
+        <div class="share-section">
+          <h4>分享链接</h4>
+          <div class="share-link-box">
+            <a-input v-model:value="shareLink" readonly />
+            <a-button type="primary" @click="copyShareLink">
+              <template #icon>
+                <CheckOutlined v-if="copied" />
+                <CopyOutlined v-else />
+              </template>
+              {{ copied ? '已复制' : '复制' }}
+            </a-button>
+          </div>
+        </div>
+
+        <a-divider />
+
+        <div class="share-section">
+          <h4>嵌入代码</h4>
+          <div class="embed-code-box">
+            <a-textarea v-model:value="embedCode" :rows="3" readonly />
+            <a-button type="primary" @click="copyEmbedCode">
+              <template #icon><CopyOutlined /></template>
+              复制代码
+            </a-button>
+          </div>
+        </div>
+
+        <a-divider />
+
+        <div class="share-section">
+          <h4>分享到社交平台</h4>
+          <div class="social-share-buttons">
+            <a-button @click="shareToSocial('weibo')">
+              <template #icon><svg-icon name="weibo" /></template>
+              微博
+            </a-button>
+            <a-button @click="shareToSocial('twitter')">
+              <template #icon><svg-icon name="twitter" /></template>
+              Twitter
+            </a-button>
+            <a-button @click="shareToSocial('facebook')">
+              <template #icon><svg-icon name="facebook" /></template>
+              Facebook
+            </a-button>
+            <a-button @click="shareToSocial('linkedin')">
+              <template #icon><svg-icon name="linkedin" /></template>
+              LinkedIn
+            </a-button>
+          </div>
+        </div>
+      </div>
+    </a-modal>
   </div>
 </template>
 
@@ -140,7 +203,10 @@ import {
   EyeOutlined,
   LikeOutlined,
   StarOutlined,
-  AppstoreOutlined
+  AppstoreOutlined,
+  ShareAltOutlined,
+  CopyOutlined,
+  CheckOutlined
 } from '@ant-design/icons-vue'
 import {
   getMarketAppDetail,
@@ -148,7 +214,8 @@ import {
   addAppComment,
   toggleAppFavorite,
   checkAppFavorite,
-  toggleAppLike
+  toggleAppLike,
+  recordAppShare
 } from '@/api'
 import { useUserStore } from '@/stores/user'
 
@@ -166,6 +233,10 @@ const windows = ref<any[]>([])
 const previewHtml = ref('')
 
 const newComment = ref({ content: '', rating: 5 })
+const shareModalVisible = ref(false)
+const shareLink = ref('')
+const embedCode = ref('')
+const copied = ref(false)
 let zIndexCounter = 1000
 
 const goBack = () => router.back()
@@ -406,6 +477,64 @@ const stopDrag = () => {
 
 const formatTime = (time: string) => time ? new Date(time).toLocaleDateString('zh-CN') : ''
 
+const showShareModal = async () => {
+  if (!app.value) return
+  const baseUrl = window.location.origin
+  shareLink.value = `${baseUrl}/market/app/${app.value.id}`
+  embedCode.value = `<iframe src="${shareLink.value}" width="100%" height="600" frameborder="0"></iframe>`
+  shareModalVisible.value = true
+  
+  try {
+    const res: any = await recordAppShare(app.value.id, 'link')
+  } catch (e) {}
+}
+
+const copyShareLink = async () => {
+  try {
+    await navigator.clipboard.writeText(shareLink.value)
+    copied.value = true
+    message.success('链接已复制到剪贴板')
+    setTimeout(() => { copied.value = false }, 2000)
+  } catch (e) {
+    message.error('复制失败')
+  }
+}
+
+const copyEmbedCode = async () => {
+  try {
+    await navigator.clipboard.writeText(embedCode.value)
+    message.success('嵌入代码已复制到剪贴板')
+  } catch (e) {
+    message.error('复制失败')
+  }
+}
+
+const shareToSocial = (platform: string) => {
+  const url = encodeURIComponent(shareLink.value)
+  const title = encodeURIComponent(app.value?.name || 'Vue AI应用')
+  let shareUrl = ''
+  
+  switch (platform) {
+    case 'weibo':
+      shareUrl = `https://service.weibo.com/share/share.php?url=${url}&title=${title}`
+      break
+    case 'twitter':
+      shareUrl = `https://twitter.com/intent/tweet?url=${url}&text=${title}`
+      break
+    case 'facebook':
+      shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`
+      break
+    case 'linkedin':
+      shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${url}`
+      break
+  }
+  
+  if (shareUrl) {
+    window.open(shareUrl, '_blank', 'width=600,height=400')
+    recordAppShare(app.value.id, platform)
+  }
+}
+
 onMounted(loadData)
 </script>
 
@@ -478,4 +607,12 @@ onMounted(loadData)
 .dark-theme .app-window { background: #1f1f1f; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
 .dark-theme .app-window-header { background: linear-gradient(180deg, #2a2a2a 0%, #1f1f1f 100%); border-color: #303030; }
 .dark-theme .window-title { color: rgba(255, 255, 255, 0.85); }
+
+.share-modal-content { padding: 0 8px; }
+.share-section { margin-bottom: 16px; }
+.share-section h4 { margin-bottom: 12px; font-weight: 500; }
+.share-link-box, .embed-code-box { display: flex; gap: 8px; align-items: flex-start; }
+.share-link-box .ant-input { flex: 1; }
+.embed-code-box .ant-input { flex: 1; font-family: monospace; }
+.social-share-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
 </style>

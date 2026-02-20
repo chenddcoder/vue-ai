@@ -1,52 +1,12 @@
 <template>
   <a-layout style="height: 100vh">
-    <a-layout-header class="header">
-      <div class="header-left">
-        <div class="logo" @click="goHome">Vue AI Platform</div>
-        <a-menu theme="dark" mode="horizontal" :selectedKeys="[currentMenuKey]" :style="{ lineHeight: '64px' }">
-          <a-menu-item key="editor" @click="goHome">编辑器</a-menu-item>
-          <a-menu-item key="market" @click="goMarket">应用市场</a-menu-item>
-          <a-menu-item key="my-apps" @click="goMyApps" v-if="userStore.isLoggedIn">我的应用</a-menu-item>
-          <a-menu-item key="ai-config" @click="goAIConfig">
-            <template #icon>
-              <RobotOutlined />
-            </template>
-            AI配置
-          </a-menu-item>
-        </a-menu>
-        <div class="project-name" v-if="projectStore.projectName">
-          <AppstoreOutlined />
-          <span>{{ projectStore.projectName }}</span>
-        </div>
-      </div>
-      
-      <div class="header-right">
-        <a-space>
-          <ThemeToggle />
-          
-          <a-button type="primary" @click="handleSave" :loading="saving">
-            <template #icon><SaveOutlined /></template>
-            保存
-          </a-button>
-          
-          <span v-if="projectStore.hasUnsavedChanges()" class="save-status">
-            <ClockCircleOutlined style="color: #faad14; margin-right: 4px" />
-            未保存
-          </span>
-          <span v-else class="save-status">
-            <CheckCircleOutlined style="color: #52c41a; margin-right: 4px" />
-            已保存
-          </span>
-          
-          <a-button type="primary" @click="showPublishModal" :disabled="userStore.isGuest" danger>
-            <template #icon><CloudUploadOutlined /></template>
-            发布
-          </a-button>
-          
-          <UserAvatar />
-        </a-space>
-      </div>
-    </a-layout-header>
+    <AppHeader 
+      showEditorActions 
+      showProjectName
+      :saving="saving"
+      @save="handleSave"
+      @publish="showPublishModal"
+    />
     
     <a-layout style="height: calc(100vh - 64px)">
       <a-layout-sider width="200" style="background: #fff; overflow: hidden; display: flex; flex-direction: column;">
@@ -159,7 +119,9 @@ import {
 } from '@ant-design/icons-vue'
 import FileTree from '@/components/FileTree.vue'
 import MonacoEditor from '@/components/editor/MonacoEditor.vue'
+import AppHeader from '@/components/AppHeader.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
+import NotificationBell from '@/components/NotificationBell.vue'
 import Preview from '@/components/preview/Preview.vue'
 import AIAssistant from '@/components/editor/AIAssistant.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
@@ -272,33 +234,6 @@ onMounted(() => {
 watch(() => route.params.id, () => {
   loadProject()
 })
-
-const currentMenuKey = computed(() => {
-  if (route.path === '/market') return 'market'
-  if (route.path === '/my-apps') return 'my-apps'
-  if (route.path === '/ai-config') return 'ai-config'
-  return 'editor'
-})
-
-// 跳转到首页
-const goHome = () => {
-  router.push('/project/new')
-}
-
-// 跳转到市场
-const goMarket = () => {
-  router.push('/market')
-}
-
-// 跳转到我的应用
-const goMyApps = () => {
-  router.push('/my-apps')
-}
-
-// 跳转到AI配置
-const goAIConfig = () => {
-  router.push('/ai-config')
-}
 
 // 保存项目
 const executeSave = async () => {
