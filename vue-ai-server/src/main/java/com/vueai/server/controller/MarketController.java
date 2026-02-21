@@ -1285,4 +1285,192 @@ public class MarketController {
         }
         return result;
     }
+
+    // ==================== 用户活动日志 API ====================
+
+    /**
+     * 记录用户活动
+     */
+    @PostMapping("/activity/log")
+    public Map<String, Object> logActivity(@RequestBody Map<String, Object> body) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            Integer userId = body.get("userId") != null ? 
+                Integer.parseInt(body.get("userId").toString()) : 1;
+            String activityType = (String) body.get("type");
+            String content = (String) body.get("content");
+            Integer relatedId = body.get("relatedId") != null ? 
+                Integer.parseInt(body.get("relatedId").toString()) : null;
+            
+            jdbcTemplate.update(
+                "INSERT INTO magic_sys_user_activity (user_id, type, content, related_id, create_time) " +
+                "VALUES (?, ?, ?, ?, datetime('now'))",
+                userId, activityType, content, relatedId
+            );
+            
+            result.put("code", 200);
+            result.put("data", Collections.singletonMap("success", true));
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 获取用户活动日志
+     */
+    @GetMapping("/activity/logs")
+    public Map<String, Object> getActivityLogs(
+            @RequestParam Integer userId,
+            @RequestParam(defaultValue = "20") Integer limit) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            List<Map<String, Object>> activities = jdbcTemplate.queryForList(
+                "SELECT * FROM magic_sys_user_activity WHERE user_id = ? ORDER BY create_time DESC LIMIT ?",
+                userId, limit
+            );
+            
+            result.put("code", 200);
+            result.put("data", activities);
+        } catch (Exception e) {
+            result.put("code", 200);
+            result.put("data", new ArrayList<>());
+        }
+        return result;
+    }
+
+    /**
+     * 获取应用评分权重（综合评分）
+     * 算法：基于评分、点赞数、浏览量、发布时间计算综合得分
+     */
+    @GetMapping("/apps/{id}/score")
+    public Map<String, Object> getAppScore(@PathVariable Integer id) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            // 获取应用基本信息
+            List<Map<String, Object>> apps = jdbcTemplate.queryForList(
+                "SELECT likes, views, publish_time, version FROM magic_sys_market_app WHERE id = ? AND status = 1",
+                id
+            );
+            
+            if (apps.isEmpty()) {
+                result.put("code", 404);
+                result.put("message", "应用不存在");
+                return result;
+            }
+            
+            Map<String, Object> app = apps.get(0);
+            Integer likes = app.get("likes") != null ? ((Number) app.get("likes")).intValue() : 0;
+            Integer views = app.get("views") != null ? ((Number) app.get("views")).intValue() : 0;
+            String publishTime = (String) app.get("publish_time");
+            
+            // 获取评分统计
+            Map<String, Object> ratingStats = new HashMap<>();
+            try {
+                List<Map<String, Object>> stats = jdbcTemplate.queryForList(
+                    "SELECT COUNT(*) as total, AVG(rating) as avg_rating, " +
+                    "SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) as star5, " +
+                    "SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END) as star4, " +
+                    "SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END) as star3, " +
+                    "SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) as star2, " +
+                    "SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as star1 " +
+                    "FROM magic_sys_market_app_comment WHERE app_id = ?",
+                    id
+                );
+                if (!stats.isEmpty()) {
+                    ratingStats = stats.get(0);
+                }
+            } catch (Exception e) {
+                ratingStats.put("total", 0);
+                ratingStats.put("avg_rating", 0.0);
+            }
+            
+            Integer totalRatings = ratingStats.get("total") != null ? 
+                ((Number) ratingStats.get("total")).intValue() : 0;
+            Double avgRating = ratingStats.get("avg_rating") != null ? 
+                ((Number) ratingStats.get("avg_rating")).doubleValue() : 0.0;
+            
+            // 计算综合得分
+            double score = calculateAppScore(likes, views, totalRatings, avgRating, publishTime);
+            
+            // 分解得分
+            double ratingScore = avgRating * 20; // 评分得分（满分20）
+            double likeScore = Math.min(likes * 0.3, 30); // 点赞得分（满分30）
+            double viewScore = Math.min(views * 0.01, 20); // 浏览得分（满分20）
+            double recencyScore = calculateRecencyScore(publishTime); // 时效性得分（满分30）
+            
+            Map<String, Object> data = new HashMap<>();
+            data.put("totalScore", Math.round(score * 100) / 100.0);
+            data.put("ratingScore", Math.round(ratingScore * 100) / 100.0);
+            data.put("likeScore", Math.round(likeScore * 100) / 100.0);
+            data.put("viewScore", Math.round(viewScore * 100) / 100.0);
+            data.put("recencyScore", Math.round(recencyScore * 100) / 100.0);
+            data.put("avgRating", Math.round(avgRating * 10) / 10.0);
+            data.put("totalRatings", totalRatings);
+            data.put("likes", likes);
+            data.put("views", views);
+            
+            result.put("code", 200);
+            result.put("data", data);
+        } catch (Exception e) {
+            result.put("code", 500);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 计算应用综合得分
+     */
+    private double calculateAppScore(int likes, int views, int totalRatings, double avgRating, String publishTime) {
+        double score = 0;
+        
+        // 评分得分 (40%)
+        score += avgRating * 8;
+        
+        // 点赞得分 (30%)
+        score += Math.min(likes * 0.3, 30);
+        
+        // 浏览量得分 (10%)
+        score += Math.min(views * 0.01, 10);
+        
+        // 时效性得分 (20%)
+        score += calculateRecencyScore(publishTime);
+        
+        return score;
+    }
+
+    /**
+     * 计算时效性得分
+     */
+    private double calculateRecencyScore(String publishTime) {
+        if (publishTime == null || publishTime.isEmpty()) {
+            return 15.0;
+        }
+        
+        try {
+            // 简单计算：假设publishTime格式为 YYYY-MM-DD HH:MM:SS
+            java.time.LocalDateTime publishDate = java.time.LocalDateTime.parse(publishTime.replace(" ", "T"));
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            long daysBetween = java.time.Duration.between(publishDate, now).toDays();
+            
+            // 30天内得分30，之后每30天减5分，最低0分
+            if (daysBetween <= 30) {
+                return 30.0;
+            } else if (daysBetween <= 60) {
+                return 25.0;
+            } else if (daysBetween <= 90) {
+                return 20.0;
+            } else if (daysBetween <= 180) {
+                return 15.0;
+            } else if (daysBetween <= 365) {
+                return 10.0;
+            } else {
+                return 5.0;
+            }
+        } catch (Exception e) {
+            return 15.0;
+        }
+    }
 }

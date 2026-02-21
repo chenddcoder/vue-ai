@@ -78,6 +78,14 @@ export const useTemplate = (id: number, data: { userId?: number; projectName?: s
   return request.post<ApiResponse>(`/api/market/templates/${id}/use`, data)
 }
 
+export const logActivity = (data: { userId?: number; type: string; content: string; relatedId?: number }) => {
+  return request.post<ApiResponse>('/api/market/activity/log', data)
+}
+
+export const getActivityLogs = (userId: number, limit?: number) => {
+  return request.get<ApiResponse>('/api/market/activity/logs', { params: { userId, limit } })
+}
+
 export const getMarketAppDetail = (id: number) => {
   return request.get<ApiResponse>(`/api/market/apps/${id}`)
 }

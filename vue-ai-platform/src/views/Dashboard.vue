@@ -114,7 +114,7 @@ import { useRouter } from 'vue-router'
 import { ProjectOutlined, AppstoreOutlined, HeartOutlined, EyeOutlined } from '@ant-design/icons-vue'
 import AppHeader from '@/components/AppHeader.vue'
 import { useUserStore } from '@/stores/user'
-import { getProjectList, getMyMarketApps } from '@/api'
+import { getProjectList, getMyMarketApps, getActivityLogs } from '@/api'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -171,12 +171,54 @@ const loadDashboardData = async () => {
       topApps.value = apps.sort((a: any, b: any) => (b.likes || 0) - (a.likes || 0)).slice(0, 5)
     }
 
-    // 生成模拟活动数据
-    generateActivities()
+    // 加载活动日志
+    try {
+      const activityRes: any = await getActivityLogs(userStore.currentUser.id, 10)
+      if (activityRes.code === 200 && activityRes.data?.length > 0) {
+        activities.value = activityRes.data.map((a: any) => ({
+          id: a.id,
+          content: a.content,
+          time: formatActivityTime(a.create_time),
+          color: getActivityColor(a.type)
+        }))
+      } else {
+        generateActivities()
+      }
+    } catch (e) {
+      generateActivities()
+    }
   } catch (e) {
     console.error('加载数据失败', e)
     loadMockData()
   }
+}
+
+const formatActivityTime = (timeStr: string) => {
+  if (!timeStr) return ''
+  const date = new Date(timeStr)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
+  
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes}分钟前`
+  if (hours < 24) return `${hours}小时前`
+  if (days < 7) return `${days}天前`
+  return date.toLocaleDateString('zh-CN')
+}
+
+const getActivityColor = (type: string) => {
+  const colors: Record<string, string> = {
+    'create_project': 'green',
+    'publish_app': 'blue',
+    'update_app': 'cyan',
+    'comment': 'purple',
+    'like': 'red',
+    'favorite': 'orange'
+  }
+  return colors[type] || 'gray'
 }
 
 const loadMockData = () => {
